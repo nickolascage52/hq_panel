@@ -26,9 +26,6 @@ node_modules/
 .env.*.local
 # .env.example STAYS in repo with placeholders only
 
-# Sprint 1 temporary worksheet (created in T-1-005, removed in T-1-010)
-docs/secrets-rotation-checklist.md
-
 # ─── Databases ──────────────────────────────────────────
 # Catches agency.db, _test_p6.db, ruvector.db, and any future DBs
 *.db
