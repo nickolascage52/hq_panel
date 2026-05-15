@@ -94,18 +94,22 @@ class PipelineWorkspace:
         git_dir = self.path / ".git"
         if not git_dir.exists():
             repo = git.Repo.init(self.path)
-            # Initial commit with the scaffolded files (so branches have a base).
-            repo.index.add([
-                str(claude_md.relative_to(self.path)),
-                str((self.docs_path / ".gitkeep").relative_to(self.path)),
-                str((self.claude_agents_path / ".gitkeep").relative_to(self.path)),
-            ])
-            # Configure local user (avoid global git config dependency).
-            with repo.config_writer() as cw:
-                cw.set_value("user", "name", "AI Pipeline")
-                cw.set_value("user", "email", "pipeline@ai-delivery.local")
-            repo.index.commit(f"Initial workspace scaffold for pipeline-run {self.run_id}")
-            logger.info("Workspace %s: git initialized + initial commit", self.run_id)
+            try:
+                # Initial commit with the scaffolded files (so branches have a base).
+                repo.index.add([
+                    str(claude_md.relative_to(self.path)),
+                    str((self.docs_path / ".gitkeep").relative_to(self.path)),
+                    str((self.claude_agents_path / ".gitkeep").relative_to(self.path)),
+                ])
+                # Configure local user (avoid global git config dependency).
+                with repo.config_writer() as cw:
+                    cw.set_value("user", "name", "AI Pipeline")
+                    cw.set_value("user", "email", "pipeline@ai-delivery.local")
+                repo.index.commit(f"Initial workspace scaffold for pipeline-run {self.run_id}")
+                logger.info("Workspace %s: git initialized + initial commit", self.run_id)
+            finally:
+                # Release internal refs (matters on Windows for later cleanup).
+                repo.close()
         else:
             logger.info("Workspace %s: .git exists, skipping init (idempotent)", self.run_id)
 
@@ -124,17 +128,51 @@ class PipelineWorkspace:
             raise WorkspaceError(f"cleanup() failed: {e}", path=str(self.path)) from e
 
     def _cleanup_sync(self) -> None:
-        """Synchronous body of cleanup(); runs in worker thread."""
-        # On Windows, .git/objects/pack files can have read-only attrs which break
-        # shutil.rmtree. The onerror handler chmod+w-s them and retries.
+        """Synchronous body of cleanup(); runs in worker thread.
+
+        Windows quirk: GitPython holds .git/objects/pack handles for a moment
+        after Repo objects go out of scope. We force gc + retry up to 3 times
+        with a small delay, and chmod read-only files inside .git on each pass.
+        """
+        import gc
+        import os
+        import stat
+        import time
+
         def _force_writable(func, path, exc_info):
-            import os
-            import stat
             try:
                 os.chmod(path, stat.S_IWRITE)
                 func(path)
             except Exception:
-                logger.warning("Could not remove %s during cleanup", path)
+                # Don't log per-file — too noisy. Retry loop will surface it.
+                pass
 
-        shutil.rmtree(self.path, onerror=_force_writable)
-        logger.info("Workspace %s: removed", self.run_id)
+        # Pre-pass: chmod everything writable inside .git.
+        git_dir = self.path / ".git"
+        if git_dir.exists():
+            for root, _, files in os.walk(git_dir):
+                for f in files:
+                    try:
+                        os.chmod(os.path.join(root, f), stat.S_IWRITE)
+                    except Exception:
+                        pass
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            gc.collect()
+            try:
+                shutil.rmtree(self.path, onerror=_force_writable)
+                if not self.path.exists():
+                    logger.info("Workspace %s: removed (attempt %d)", self.run_id, attempt + 1)
+                    return
+            except Exception as e:
+                last_error = e
+            time.sleep(0.3 * (attempt + 1))
+
+        # Final attempt left residue → not fatal but log loudly.
+        if self.path.exists():
+            logger.error(
+                "Workspace %s: could not fully remove %s after 3 attempts (last error: %s). "
+                "Manual cleanup required.",
+                self.run_id, self.path, last_error,
+            )
