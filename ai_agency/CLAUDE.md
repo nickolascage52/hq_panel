@@ -425,6 +425,105 @@ asyncio.run(main())
 
 ---
 
+## 16-bis. AI Pipeline Module (Sprint 2-4, v1.0)
+
+В `ai_agency/pipeline/` — новый модуль для **автономной разработки клиентских проектов** через Claude Code multi-agent. Параллелен старой AI Команде (`agents/`), не заменяет её.
+
+### Структура
+
+```
+ai_agency/pipeline/
+├── runner.py            # PipelineRunner.execute() / .resume()
+├── workspace.py         # PipelineWorkspace — управление /pipeline_workspaces/<id>/
+├── progress.py          # PipelineProgress — pipeline_events + WebSocket broadcast
+├── claude_runner.py     # ClaudeRunner — обёртка claude-agent-sdk + key gating
+├── git_manager.py       # GitManager — GitPython wrapper (init, branch, commit, worktree, merge)
+├── tmux_manager.py      # TmuxManager — tmux subprocess (no-op на Windows)
+├── rate_limit.py        # RateLimitManager — DOWNGRADE_CHAINS + select_model_for_task
+├── deploy.py            # deploy(strategy, ...) — none/vercel/aeza/custom
+├── telegram_notifier.py # отдельный watcher pipeline_events → Telegram owner
+├── exceptions.py        # PipelineError + 6 подклассов
+└── phases/
+    ├── base.py          # PhaseBase — wraps _run() with phase_started/completed events
+    ├── phase1_prompt.py        — refine raw_idea → production_prompt
+    ├── phase2_prd.py           — /prd-builder skill → docs/PRD.md
+    ├── phase3_architecture.py  — /architecture-decider → ARCHITECTURE.md + CLAUDE.md
+    ├── phase4_sprints.py       — /sprint-planner → docs/sprints/ + pipeline_sprints
+    ├── phase5_execution.py     — sprint loop (real spawn — v1.1 backlog)
+    ├── phase6_validation.py    — workspace inspection (real build — v1.1 backlog)
+    └── phase7_handoff.py       — final-report.md + deploy + delivery_projects.status
+```
+
+### БД-таблицы (5 новых)
+
+- `pipeline_runs` (главная сущность, FK delivery_projects + hq_users)
+- `pipeline_sprints` (FK pipeline_runs CASCADE)
+- `pipeline_events` (event log)
+- `pipeline_chat_messages` (chat per run)
+- `pipeline_rate_limits` (3 строки seed: opus/sonnet/haiku)
+
+### API endpoints
+
+- `POST /api/pipeline/runs` — создать + spawn runner
+- `GET /api/pipeline/runs?status=&limit=&offset=`
+- `GET /api/pipeline/runs/{id}`
+- `GET /api/pipeline/runs/{id}/events?limit=&since=`
+- `POST /api/pipeline/runs/{id}/approve` — для autonomy_level<3
+- `WS /ws/pipeline/{id}?token=` — live event stream
+
+Все защищены `require_role('owner')` (или owner|pm для GET).
+
+### UI
+
+- `/hq/pipeline.html` — список + создание + 5 metric cards + filter
+- `/hq/pipeline-run-detail.html?id=N` — header + 4 tabs (Overview/Documents/Sprints/Events) + WS live
+- `hq-pipeline.js` — HQPipeline namespace (CRUD + WebSocket helpers)
+
+### Lifecycle
+
+```
+POST /api/pipeline/runs
+  → status='pending' → asyncio.create_task(PipelineRunner.execute())
+  → 'running'
+  → Phase 1 (prompt) → Phase 2 (PRD) → Phase 3 (architecture)
+    → если autonomy<3: pause → 'awaiting_approval' (Telegram notify)
+    → POST /approve → asyncio.create_task(.resume())
+  → Phase 4 (sprints)
+    → если autonomy<2: pause → 'awaiting_approval'
+  → Phase 5 (execution) → Phase 6 (validation) → Phase 7 (handoff)
+  → status='done' or 'review' (если delivery_project_id и status set)
+  → Telegram notify "🎉 готов к review"
+```
+
+### Resume across restart (T-2-013)
+
+`pipeline.resume_pending_runs()` вызывается из `main.py` после `init_db()`. Берёт все `status IN ('running', 'paused_rate_limit')` и для каждого:
+- `running` → спавнит `PipelineRunner.resume()` (был прерван)
+- `paused_rate_limit` И `resume_after <= now` → auto-resume
+
+### PIPELINE_FORCE_STUB env
+
+Для тестов (`tests/test_pipeline_skeleton.py`) — каждая фаза при `PIPELINE_FORCE_STUB=true` короткий `asyncio.sleep`. Production — реальные Claude calls.
+
+### Связь со старой AI Командой (deprecated)
+
+- AI Команда (`agents/`, `orchestrator.py`) **не тронута** — остаётся работать.
+- В sidebar пункт переименован: `AI Команда (legacy)` (T-4-009).
+- `team.html`, `team-settings.html` работают как раньше.
+- Telegram-бот команды `/agent` и текстовый routing продолжают работать (graceful degradation если Anthropic key нет).
+- Pipeline notifications идут от **того же бот-аккаунта**, но через отдельный watcher (`pipeline/telegram_notifier.py`) — не конфликтует с командами.
+- План удаления старой AI Команды — v2.0, см. `docs/ai-team-deprecation-plan.md`.
+
+### Известные грабли pipeline
+
+1. **PIPELINE_FORCE_STUB=true** в pytest fixture — реально не вызывает Claude. Любой test для real Phase 1-7 — отдельный файл с `@pytest.mark.skipif(not _api_key_real())`.
+2. **Phase 5/6 в v1.0 — stubs.** Real spawn architect/builders/validator — backlog v1.1 когда `ANTHROPIC_API_KEY` восстановят.
+3. **tmux на Windows = no-op** (warning + return False). Production Linux — должен быть установлен (`apt install tmux`).
+4. **Workspace cleanup на Windows** — GitPython держит .git/objects/pack handles. Решено в `PipelineWorkspace._cleanup_sync` через gc.collect + retry. На Linux — instant.
+5. **GitHub Push Protection** — secret detection. `.env.example` содержит ТОЛЬКО placeholders (sanitized в Sprint 1 hotfix).
+
+---
+
 ## 17. Связи с внешним миром
 
 Этот код — часть большой папки `AI-запуск_обучение_инфопродукт/`. Корневой `CLAUDE.md` описывает контекст агентства целиком. Этот файл — только про код.
