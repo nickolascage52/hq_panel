@@ -2325,6 +2325,12 @@ from hq_v3_api import mount_hq_v3_routes
 mount_hq_v3_routes(app, orchestrator, verify_password, _hq_llm_run, require_role, get_optional_hq_session)
 
 
+# ── HQ Pipeline API (T-2-011, Sprint 2) ──
+from pipeline_api import mount_pipeline_routes
+
+mount_pipeline_routes(app, require_role)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  ПРОИЗВОДСТВО (Delivery): отдельный bounded context от CRM projects
 # ═══════════════════════════════════════════════════════════════════════════
