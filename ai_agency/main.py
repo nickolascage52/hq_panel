@@ -160,6 +160,16 @@ async def main():
     except Exception as e:  # noqa: BLE001 — never block startup on pipeline issues
         logger.warning("Pipeline resume_pending_runs failed: %s", e)
 
+    # T-4-010 (Sprint 4): start Telegram watcher for pipeline events.
+    # Only starts if TELEGRAM_BOT_TOKEN+OWNER_ID configured; no-op otherwise.
+    if not web_only_mode():
+        try:
+            from pipeline.telegram_notifier import watch_pipeline_events
+            asyncio.create_task(watch_pipeline_events(), name="pipeline_telegram_watcher")
+            logger.info("Pipeline Telegram watcher started (background task)")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Pipeline Telegram watcher failed to start: %s", e)
+
     from orchestrator import Orchestrator
     orchestrator = Orchestrator()
 
