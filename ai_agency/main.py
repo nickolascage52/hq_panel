@@ -152,6 +152,14 @@ async def main():
     await init_db()
     logger.info("База данных готова")
 
+    # T-2-013 (Sprint 2): resume any pipeline-runs that were running/paused
+    # when the service was last stopped. Non-blocking: schedules background tasks.
+    try:
+        from pipeline import resume_pending_runs
+        await resume_pending_runs()
+    except Exception as e:  # noqa: BLE001 — never block startup on pipeline issues
+        logger.warning("Pipeline resume_pending_runs failed: %s", e)
+
     from orchestrator import Orchestrator
     orchestrator = Orchestrator()
 
