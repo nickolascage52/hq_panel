@@ -140,14 +140,16 @@ def test_pipeline_run_lifecycle(service, auth_headers):
     assert final["status"] == "done", f"expected done, got {final['status']}: {final.get('error_message')}"
     assert final["current_phase"] == "handoff"
 
-    # 3. Events: should be 16 (7 phase_started + 7 phase_completed + run_started + run_completed)
+    # 3. Events: 16 baseline (7 phase_started + 7 phase_completed + run_started +
+    # run_completed) plus extras emitted by some phases (validation_inspection,
+    # handoff_complete, sprint_started/completed if any sprints).
     r = httpx.get(
         f"{HTTP_BASE}/api/pipeline/runs/{run_id}/events?limit=100",
         headers=auth_headers, timeout=5,
     )
     assert r.status_code == 200
     events = r.json()["events"]
-    assert len(events) == 16, f"expected 16 events, got {len(events)}: {[e['event_type'] for e in events]}"
+    assert len(events) >= 16, f"expected >=16 events, got {len(events)}: {[e['event_type'] for e in events]}"
 
     type_counts: dict[str, int] = {}
     for e in events:
@@ -156,6 +158,9 @@ def test_pipeline_run_lifecycle(service, auth_headers):
     assert type_counts["phase_completed"] == 7
     assert type_counts["run_started"] == 1
     assert type_counts["run_completed"] == 1
+    # Sprint 4 phases emit extra signals (not always present — Phase 5 only
+    # emits sprint_* if pipeline_sprints rows exist for the run).
+    assert "handoff_complete" in type_counts
 
     # Phase order: events come back DESC by id; verify completed-phase order chronologically.
     completed_phases = [
