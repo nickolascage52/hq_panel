@@ -83,8 +83,8 @@ from database import (
 
 logger = logging.getLogger("hq_v3_api")
 
-# Сессии логина HQ (общий объект с api.py через импорт).
-_sessions: dict[str, dict] = {}
+# T-1-012 (Sprint 1): in-memory _sessions dict removed. Sessions now live in
+# the `hq_sessions` table; api.py imports session_store directly.
 
 KNOWLEDGE_DIR = Path(__file__).resolve().parent / "data" / "knowledge"
 
@@ -574,7 +574,7 @@ def mount_hq_v3_routes(
         my_tasks: bool = Query(False),
         _auth: bool = Depends(verify_password),
     ):
-        sess = get_optional_hq_session(request)
+        sess = await get_optional_hq_session(request)
         uid_filter: int | None = None
         if sess and sess.get("role") == "executor":
             uid_filter = int(sess["user_id"])
@@ -619,7 +619,7 @@ def mount_hq_v3_routes(
         _auth: bool = Depends(verify_password),
     ):
         today = date.today().isoformat()
-        sess = get_optional_hq_session(request)
+        sess = await get_optional_hq_session(request)
         uid = sess.get("user_id") if sess else None
 
         db_path = str(DB_PATH)
@@ -752,7 +752,7 @@ def mount_hq_v3_routes(
         request: Request,
         _auth: bool = Depends(verify_password),
     ):
-        sess = get_optional_hq_session(request)
+        sess = await get_optional_hq_session(request)
         row = await get_task_v2_detail(task_id)
         if not row:
             raise HTTPException(status_code=404, detail="Задача не найдена")

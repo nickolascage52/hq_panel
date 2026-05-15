@@ -47,7 +47,12 @@ from database import (
     get_task_v2, sync_task_v2_ai_link, insert_timeline_event,
     create_student_progress_log, list_student_progress_logs,
 )
-from hq_v3_api import _sessions
+from session_store import (
+    create_session as _ss_create_session,
+    get_session as _ss_get_session,
+    delete_session as _ss_delete_session,
+    cleanup_expired_sessions as _ss_cleanup_expired,
+)
 from orchestrator import Orchestrator
 from agency_context_loader import (
     get_context_meta, get_context_preview,
@@ -132,8 +137,10 @@ orchestrator = Orchestrator()
 
 
 # ── Аутентификация ──
+# T-1-012 (Sprint 1): сессии живут в БД-таблице hq_sessions, не в памяти.
+# Все session-операции делегированы в session_store.py.
 
-def verify_password(
+async def verify_password(
     password: str | None = Query(None, alias="password"),
     x_admin_password: str | None = Header(None, alias="X-Admin-Password"),
     x_auth_token: str | None = Header(None, alias="X-Auth-Token"),
@@ -148,10 +155,10 @@ def verify_password(
     # 1) Старый admin password
     if admin_pw and provided and provided == admin_pw:
         return True
-    # 2) Новая сессия по токену
+    # 2) Новая сессия по токену (БД-lookup)
     if x_auth_token:
-        sess = _sessions.get(x_auth_token)
-        if sess and sess.get("expires") and sess["expires"] >= datetime.now():
+        sess = await _ss_get_session(x_auth_token)
+        if sess:
             return True
     # 3) Если пароль не задан вообще — открытый доступ
     if not admin_pw:
@@ -159,28 +166,19 @@ def verify_password(
     raise HTTPException(status_code=401, detail="Неверный пароль")
 
 
-# ── Сессии и роли (новая система авторизации) ──
-# Хранение в памяти достаточно для MVP: при рестарте все логинятся заново.
-# dict _sessions объявлен в hq_v3_api.py (единый объект для api и v3-роутов).
-_SESSION_TTL_DAYS = 7
+# ── Сессии и роли (T-1-012: БД-backed) ──
 
 
 def _sha256(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def _resolve_session(request: Request) -> dict | None:
-    """Вернуть активную сессию по X-Auth-Token (или None)."""
+async def _resolve_session(request: Request) -> dict | None:
+    """Вернуть активную сессию по X-Auth-Token (или None). БД-backed."""
     token = request.headers.get("X-Auth-Token", "") or request.headers.get("x-auth-token", "")
     if not token:
         return None
-    sess = _sessions.get(token)
-    if not sess:
-        return None
-    if sess["expires"] < datetime.now():
-        _sessions.pop(token, None)
-        return None
-    return sess
+    return await _ss_get_session(token)
 
 
 def require_role(*roles: str):
@@ -197,7 +195,7 @@ def require_role(*roles: str):
             return {"user_id": 1, "role": "owner", "name": "Owner (legacy)"}
 
         # 2) Новая сессия по токену
-        sess = _resolve_session(request)
+        sess = await _resolve_session(request)
         if not sess:
             raise HTTPException(status_code=401, detail="Не авторизован")
         if roles and sess["role"] not in roles:
@@ -213,7 +211,7 @@ def require_role(*roles: str):
     return checker
 
 
-def get_optional_hq_session(request: Request) -> dict | None:
+async def get_optional_hq_session(request: Request) -> dict | None:
     """Та же модель пользователя что в require_role, но без ошибки если нет авторизации."""
 
     old_pwd = (
@@ -223,7 +221,7 @@ def get_optional_hq_session(request: Request) -> dict | None:
     admin_pw = os.getenv("ADMIN_PASSWORD", "")
     if admin_pw and old_pwd and old_pwd == admin_pw:
         return {"user_id": 1, "role": "owner", "name": "Owner (legacy)"}
-    return _resolve_session(request)
+    return await _resolve_session(request)
 
 
 # ── Эндпоинты аутентификации ──
@@ -253,15 +251,19 @@ async def auth_login(request: Request):
     user = dict(row)
     if (user.get("status") or "active") != "active":
         raise HTTPException(403, "Пользователь неактивен")
-    token = secrets.token_hex(32)
-    _sessions[token] = {
-        "user_id": user["id"],
-        "role": user["role"],
-        "name": user["name"],
-        "expires": datetime.now() + timedelta(days=_SESSION_TTL_DAYS),
-    }
+
+    # T-1-012: persistent session in hq_sessions table.
+    ip_address = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent", "")[:500] or None
+    sess = await _ss_create_session(
+        user_id=user["id"],
+        role=user["role"],
+        name=user["name"],
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
     return {
-        "token": token,
+        "token": sess["token"],
         "user_id": user["id"],
         "role": user["role"],
         "name": user["name"],
@@ -276,7 +278,7 @@ async def auth_me(request: Request):
     admin_pw = os.getenv("ADMIN_PASSWORD", "")
     if admin_pw and old_pwd and old_pwd == admin_pw:
         return {"user_id": 1, "role": "owner", "name": "Owner"}
-    sess = _resolve_session(request)
+    sess = await _resolve_session(request)
     if not sess:
         raise HTTPException(401, "Не авторизован")
     return {"user_id": sess["user_id"], "role": sess["role"], "name": sess["name"]}
@@ -286,7 +288,7 @@ async def auth_me(request: Request):
 async def auth_logout(request: Request):
     """Удалить токен сессии."""
     token = request.headers.get("X-Auth-Token", "")
-    _sessions.pop(token, None)
+    await _ss_delete_session(token)
     return {"success": True}
 
 
