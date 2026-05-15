@@ -90,11 +90,16 @@
       </div>
 
       <div class="tab-panel" id="tab-docs">
-        <div class="docs-empty">PRD/Architecture rendering — backlog v1.1 (требует marked.js + workspace API).</div>
+        <div style="display: grid; grid-template-columns: 240px 1fr; gap: 16px;">
+          <div id="docs-files-list" style="background: var(--hq-card, #1a1a2e); border-radius: 12px; padding: 12px; max-height: 70vh; overflow-y: auto;">Загрузка...</div>
+          <div id="docs-content" class="docs-content" style="max-height: 70vh; overflow-y: auto;">
+            <div class="docs-empty">Выбери файл слева</div>
+          </div>
+        </div>
       </div>
 
       <div class="tab-panel" id="tab-sprints">
-        <div id="sprints-list">Загрузка...</div>
+        <div id="sprints-board" style="display: flex; flex-direction: column; gap: 12px;">Загрузка...</div>
       </div>
 
       <div class="tab-panel" id="tab-events">
@@ -107,6 +112,8 @@
   <script src="hq-global.js"></script>
   <script src="hq-mobile.js"></script>
   <script src="hq-pipeline.js"></script>
+  <!-- marked.js for markdown rendering in Documents tab (HI-2) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@13.0.2/marked.min.js"></script>
   <script>
     const PHASE_ORDER = ['prompt','prd','architecture','sprints','execution','validation','handoff'];
     const params = new URLSearchParams(location.search);
@@ -127,6 +134,8 @@
       await loadRun();
       await loadEvents();
       ws = HQPipeline.connectWebSocket(runId, onWsEvent, onWsClose);
+      // Seed reconnect cursor so refetch doesn't replay events we already loaded
+      if (ws && ws.seedLastEventId) ws.seedLastEventId(lastEventId);
     });
 
     function bindTabs() {
@@ -135,9 +144,127 @@
           document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
           document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
           btn.classList.add('active');
-          document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+          const tab = btn.dataset.tab;
+          document.getElementById('tab-' + tab).classList.add('active');
+          // Lazy-load tab content on first activation
+          if (tab === 'docs') loadDocsTab();
+          else if (tab === 'sprints') loadSprintsTab();
         });
       });
+    }
+
+    let docsLoaded = false;
+    let sprintsLoaded = false;
+
+    async function loadDocsTab() {
+      if (docsLoaded) return;
+      docsLoaded = true;
+      const listEl = document.getElementById('docs-files-list');
+      const contentEl = document.getElementById('docs-content');
+      try {
+        const result = await HQPipeline.listFiles(runId);
+        if (!result.files || !result.files.length) {
+          listEl.innerHTML = '<div class="docs-empty" style="padding: 20px;">Нет файлов в workspace.<br><span style="font-size: 11px;">Phase 1-4 ещё не отработали или PIPELINE_FORCE_STUB=true</span></div>';
+          return;
+        }
+        // Group by category
+        const groups = {root: [], docs: [], sprints: []};
+        for (const f of result.files) (groups[f.category] || groups.docs).push(f);
+        const sectionHtml = (title, files) => files.length === 0 ? '' : `
+          <div style="font-size: 11px; color: var(--hq-text-secondary, #888); text-transform: uppercase; margin: 8px 4px 4px;">${title}</div>
+          ${files.map(f => `
+            <div class="docs-file-link" data-path="${escapeHtml(f.path)}"
+                 style="padding: 6px 10px; cursor: pointer; border-radius: 6px; font-size: 13px; word-break: break-all;">
+              ${escapeHtml(f.path.split('/').pop())}
+              <span style="color: var(--hq-text-secondary, #666); font-size: 10px;">${(f.size / 1024).toFixed(1)}k</span>
+            </div>
+          `).join('')}
+        `;
+        listEl.innerHTML = sectionHtml('Root', groups.root) + sectionHtml('Docs', groups.docs) + sectionHtml('Sprints', groups.sprints);
+        // Hover style
+        listEl.querySelectorAll('.docs-file-link').forEach(el => {
+          el.addEventListener('mouseenter', () => el.style.background = 'rgba(255,255,255,0.04)');
+          el.addEventListener('mouseleave', () => el.style.background = '');
+          el.addEventListener('click', () => {
+            listEl.querySelectorAll('.docs-file-link').forEach(x => x.style.fontWeight = '');
+            el.style.fontWeight = '600';
+            renderFile(el.dataset.path);
+          });
+        });
+        // Auto-select PRD.md if exists, else first file
+        const prd = listEl.querySelector('[data-path="docs/PRD.md"]') || listEl.querySelector('.docs-file-link');
+        if (prd) prd.click();
+      } catch (err) {
+        if (err.message === 'UNAUTHORIZED') { location.href = 'login.html'; return; }
+        listEl.innerHTML = '<div class="docs-empty">Ошибка: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    async function renderFile(path) {
+      const contentEl = document.getElementById('docs-content');
+      contentEl.innerHTML = '<div class="docs-empty">Загрузка...</div>';
+      try {
+        const r = await HQPipeline.getFileContent(runId, path);
+        if (typeof marked !== 'undefined' && (path.endsWith('.md') || !path.includes('.'))) {
+          // marked.js available + markdown file → render
+          contentEl.innerHTML = '<div style="padding: 0 8px;">' + marked.parse(r.content) + '</div>';
+        } else {
+          contentEl.innerHTML = '<pre>' + escapeHtml(r.content) + '</pre>';
+        }
+      } catch (err) {
+        contentEl.innerHTML = '<div class="docs-empty">Ошибка загрузки: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    async function loadSprintsTab() {
+      // Always reload sprints to reflect latest status (may have advanced via WS)
+      const board = document.getElementById('sprints-board');
+      try {
+        const result = await HQPipeline.listSprints(runId);
+        sprintsLoaded = true;
+        if (!result.sprints || !result.sprints.length) {
+          board.innerHTML = '<div class="docs-empty">Нет спринтов.<br><span style="font-size: 11px;">Phase 4 (Sprint Planning) ещё не отработала.</span></div>';
+          return;
+        }
+        const statusColor = (s) => ({
+          planned: 'gray', active: 'cyan', validating: 'yellow', done: 'green', failed: 'red',
+        }[s] || 'gray');
+        board.innerHTML = result.sprints.map(s => {
+          const total = s.tasks_total || 0;
+          const done = s.tasks_done || 0;
+          const failed = s.tasks_failed || 0;
+          const pct = total ? Math.round(done / total * 100) : 0;
+          const collapsed = s.status !== 'active';
+          return `
+            <div class="card" style="background: var(--hq-card, #1a1a2e); border: 1px solid var(--hq-border, #2a2a3e); border-radius: 12px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; gap: 12px; align-items: start;">
+                <div>
+                  <div style="font-weight: 600;">Sprint ${s.sprint_number}: ${escapeHtml(s.name || '')}</div>
+                  ${s.goal ? `<div style="color: var(--hq-text-secondary, #888); font-size: 12px; margin-top: 2px;">${escapeHtml(s.goal)}</div>` : ''}
+                </div>
+                <span class="status-badge ${statusColor(s.status)}">${HQPipeline.statusLabel(s.status) || s.status}</span>
+              </div>
+              ${total > 0 ? `
+                <div class="run-meta-row" style="margin-top: 8px; font-size: 12px;">
+                  <span>📋 ${done}/${total} done${failed ? `, ${failed} failed` : ''}</span>
+                </div>
+                <div class="progress-track" style="margin-top: 6px;"><div class="progress-fill" style="width: ${pct}%"></div></div>
+              ` : ''}
+              ${s.spec_md ? `
+                <details style="margin-top: 10px;">
+                  <summary style="cursor: pointer; font-size: 12px; color: var(--hq-text-secondary, #888);">spec.md (раскрыть)</summary>
+                  <div style="margin-top: 8px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 12px; max-height: 400px; overflow-y: auto;">
+                    ${typeof marked !== 'undefined' ? marked.parse(s.spec_md) : '<pre>' + escapeHtml(s.spec_md) + '</pre>'}
+                  </div>
+                </details>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        if (err.message === 'UNAUTHORIZED') { location.href = 'login.html'; return; }
+        board.innerHTML = '<div class="docs-empty">Ошибка: ' + escapeHtml(err.message) + '</div>';
+      }
     }
 
     async function loadRun() {
@@ -167,6 +294,7 @@
               <span>🎯 ${escapeHtml(r.project_type || '')}</span>
               <span>autonomy: ${r.autonomy_level}</span>
               <span>deploy: ${escapeHtml(r.deploy_strategy || 'none')}</span>
+              <span>🪙 ${(r.tokens_used || 0).toLocaleString()} tokens</span>
             </div>
           </div>
           <div class="actions-bar">
@@ -229,7 +357,6 @@
         if (events.length > 0) lastEventId = Math.max(...events.map(e => e.id));
         renderAllEvents(events);
         renderRecentEvents(events.slice(0, 10));
-        loadSprints();
       } catch (err) {
         if (err.message === 'UNAUTHORIZED') { location.href = 'login.html'; return; }
         console.error('loadEvents:', err);
@@ -259,12 +386,7 @@
       `).join('');
     }
 
-    async function loadSprints() {
-      // pipeline_sprints listing endpoint — backlog v1.1; for now render placeholder.
-      document.getElementById('sprints-list').innerHTML =
-        '<div class="docs-empty">Sprints listing endpoint — backlog v1.1.<br>' +
-        'События sprint_started / sprint_completed во вкладке Events дают тот же signal.</div>';
-    }
+    // loadSprints() removed — replaced by loadSprintsTab() above (HI-3 v1.1)
 
     async function onApprove() {
       try {
@@ -297,12 +419,10 @@
     }
 
     function onWsClose() {
-      console.warn('Pipeline WS closed; falling back to 5s polling');
-      setInterval(async () => {
-        const r = await HQPipeline.getEvents(runId, { since: lastEventId, limit: 50 });
-        (r.events || []).reverse().forEach(onWsEvent);
-        loadRun();
-      }, 5000);
+      // HI-5 (v1.1): connectWebSocket auto-reconnects with exponential backoff.
+      // We just log here; no need for manual polling fallback (the connect helper
+      // also replays missed events via ?since=).
+      console.warn('Pipeline WS closed; auto-reconnect with backoff in progress');
     }
 
     function escapeHtml(s) {

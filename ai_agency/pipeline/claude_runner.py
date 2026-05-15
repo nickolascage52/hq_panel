@@ -180,6 +180,16 @@ class ClaudeRunner:
                 """,
                 (output[:64000] if output else error, status, tokens, execution_id),
             )
+            # HI-6 (v1.1): increment cumulative cost per pipeline-run.
+            if self.run_id and tokens:
+                await db.execute(
+                    """
+                    UPDATE pipeline_runs
+                       SET tokens_used = COALESCE(tokens_used, 0) + ?
+                     WHERE id = ?
+                    """,
+                    (tokens, self.run_id),
+                )
             await db.commit()
 
 

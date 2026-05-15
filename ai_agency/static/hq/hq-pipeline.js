@@ -74,33 +74,115 @@
     async resumeRun(id) { return _fetchJson(`${BASE}/runs/${id}/resume`, { method: 'POST' }); },
     async abortRun(id) { return _fetchJson(`${BASE}/runs/${id}/abort`, { method: 'POST' }); },
 
+    // ── HI-3 Sprints + HI-2 Files (v1.1) ─────────────────────────────
+
+    async listSprints(id) {
+      return _fetchJson(`${BASE}/runs/${id}/sprints`);
+    },
+
+    async listFiles(id) {
+      return _fetchJson(`${BASE}/runs/${id}/files`);
+    },
+
+    async getFileContent(id, path) {
+      // path is encoded as part of the URL path (FastAPI :path converter)
+      const safePath = path.split('/').map(encodeURIComponent).join('/');
+      return _fetchJson(`${BASE}/runs/${id}/files/${safePath}`);
+    },
+
     // ── WebSocket live events ────────────────────────────────────────
 
     /**
-     * Connect to /ws/pipeline/{runId} and call onEvent(event) for each frame.
-     * Returns the WebSocket instance so callers can close().
+     * Robust WS connection with auto-reconnect (HI-5, v1.1).
+     *
+     * - Exponential backoff from 1s up to 30s on close.
+     * - Tracks lastEventId; on reconnect, fetches missed events via
+     *   GET /api/pipeline/runs/{id}/events?since=<lastEventId> so the UI
+     *   never loses events even if WS drops mid-pipeline.
+     * - Returns a control object { close() } — call to stop reconnecting.
      */
     connectWebSocket(runId, onEvent, onClose) {
-      const token = (typeof getAuthToken === 'function') ? getAuthToken() : '';
-      if (!token) {
-        console.warn('HQPipeline.connectWebSocket: no auth token');
-        return null;
-      }
-      const proto = (location.protocol === 'https:') ? 'wss' : 'ws';
-      const url = `${proto}://${location.host}/ws/pipeline/${runId}?token=${encodeURIComponent(token)}`;
-      const ws = new WebSocket(url);
-      ws.addEventListener('message', (msg) => {
-        try {
-          const event = JSON.parse(msg.data);
-          if (typeof onEvent === 'function') onEvent(event);
-        } catch (err) {
-          console.warn('HQPipeline ws parse error:', err);
+      let reconnectDelay = 1000;
+      let lastEventId = 0;
+      let stopped = false;
+      let ws = null;
+
+      const open = () => {
+        if (stopped) return;
+        const token = (typeof getAuthToken === 'function') ? getAuthToken() : '';
+        if (!token) {
+          console.warn('HQPipeline.connectWebSocket: no auth token');
+          return;
         }
-      });
-      ws.addEventListener('close', () => {
-        if (typeof onClose === 'function') onClose();
-      });
-      return ws;
+        const proto = (location.protocol === 'https:') ? 'wss' : 'ws';
+        const url = `${proto}://${location.host}/ws/pipeline/${runId}?token=${encodeURIComponent(token)}`;
+        try {
+          ws = new WebSocket(url);
+        } catch (err) {
+          console.warn('HQPipeline WS construct failed:', err);
+          scheduleReconnect();
+          return;
+        }
+
+        ws.addEventListener('open', async () => {
+          reconnectDelay = 1000;
+          // After reconnect, replay missed events.
+          if (lastEventId > 0) {
+            try {
+              const r = await HQPipeline.getEvents(runId, { since: lastEventId, limit: 200 });
+              const newer = (r.events || []).filter(e => e.id > lastEventId);
+              // events come DESC; replay chronologically
+              newer.reverse().forEach(e => {
+                lastEventId = Math.max(lastEventId, e.id);
+                if (typeof onEvent === 'function') onEvent(e);
+              });
+            } catch (err) {
+              console.warn('HQPipeline missed-events fetch failed:', err);
+            }
+          }
+        });
+
+        ws.addEventListener('message', (msg) => {
+          try {
+            const event = JSON.parse(msg.data);
+            if (event && event.id) lastEventId = Math.max(lastEventId, event.id);
+            if (typeof onEvent === 'function') onEvent(event);
+          } catch (err) {
+            console.warn('HQPipeline ws parse error:', err);
+          }
+        });
+
+        ws.addEventListener('close', () => {
+          if (stopped) return;
+          if (typeof onClose === 'function') {
+            try { onClose(); } catch (_) {}
+          }
+          scheduleReconnect();
+        });
+
+        ws.addEventListener('error', () => {
+          // Close handler will fire after error → triggers reconnect.
+        });
+      };
+
+      const scheduleReconnect = () => {
+        if (stopped) return;
+        const delay = Math.min(reconnectDelay, 30000);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        setTimeout(open, delay);
+      };
+
+      // Allow callers to seed lastEventId so first reconnect doesn't replay
+      // already-seen events. (Optional — start fresh if not provided.)
+      const ctrl = {
+        close: () => {
+          stopped = true;
+          if (ws) try { ws.close(); } catch (_) {}
+        },
+        seedLastEventId: (id) => { lastEventId = Math.max(lastEventId, id || 0); },
+      };
+      open();
+      return ctrl;
     },
 
     // ── Helpers for UI ───────────────────────────────────────────────

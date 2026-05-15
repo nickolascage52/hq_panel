@@ -240,6 +240,7 @@
             <div class="run-meta">
               <span class="run-meta-item">🎯 ${escapeHtml(r.project_type || '')}</span>
               <span class="run-meta-item">📊 ${phaseLabel}</span>
+              ${r.tokens_used ? `<span class="run-meta-item">🪙 ${r.tokens_used.toLocaleString()}</span>` : ''}
               <span class="run-meta-item">#${r.id}</span>
             </div>
             <div class="progress-bar"><div class="progress-bar-fill" style="width: ${progress}%"></div></div>

@@ -8,9 +8,9 @@ AI Pipeline (`ai_agency/pipeline/`).
 | Файл | Тип проекта | Sprint введения |
 |---|---|---|
 | `landing.md` | Лендинг (Next.js 15) | Sprint 3 (T-3-004) |
-| `telegram_bot.md` | Telegram-бот | TODO Sprint v1.1 |
-| `n8n.md` | n8n автоматизации | TODO Sprint v1.1 |
-| `ai_assistant.md` | Внутренний AI-ассистент | TODO Sprint v1.1 |
+| `telegram_bot.md` | Telegram-бот (aiogram 3.x) | v1.1 (MD-1) |
+| `n8n.md` | n8n self-hosted automations | v1.1 (MD-1) |
+| `ai_assistant.md` | RAG/tool-use AI assistant (FastAPI + Claude + Qdrant) | v1.1 (MD-1) |
 
 Каждый стандарт описывает:
 - Stack (LOCKED) — технологии и версии

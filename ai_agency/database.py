@@ -549,6 +549,7 @@ async def init_db():
     await _seed_owner_user()
     await _seed_delivery_templates()
     await _add_pipeline_tables_v1()
+    await _migrate_pipeline_v1_1()
 
 
 async def _migrate_delivery_templates_expand() -> None:
@@ -3881,3 +3882,14 @@ async def _add_pipeline_tables_v1() -> None:
 
         await db.commit()
         logger.info("Pipeline tables ready (pipeline_runs, _sprints, _events, _chat_messages, _rate_limits)")
+
+
+async def _migrate_pipeline_v1_1() -> None:
+    """v1.1 additions: cost tracking column on pipeline_runs.
+
+    Idempotent: uses _add_column_if_missing pattern.
+    """
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await _add_column_if_missing(db, "pipeline_runs", "tokens_used", "INTEGER DEFAULT 0")
+        await db.commit()
+        logger.info("Pipeline v1.1 migration applied (pipeline_runs.tokens_used)")

@@ -199,6 +199,123 @@ def mount_pipeline_routes(
 
         return {"events": events, "count": len(events), "limit": limit, "since": since}
 
+    # ── GET /api/pipeline/runs/{id}/sprints (HI-3, v1.1) ─────────────────
+
+    @app.get("/api/pipeline/runs/{run_id}/sprints")
+    async def pipeline_run_sprints(
+        run_id: int,
+        _session: dict = Depends(require_role("owner", "pm")),
+    ):
+        """List sprints (planned/active/done/failed) for a pipeline-run.
+
+        Each sprint includes status, task counts, timing. spec_md content
+        is included so UI can render the full sprint description without
+        another round-trip.
+        """
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                "SELECT id, sprint_number, name, goal, status, "
+                "tasks_total, tasks_done, tasks_failed, "
+                "started_at, completed_at, created_at, spec_md "
+                "FROM pipeline_sprints WHERE run_id = ? "
+                "ORDER BY sprint_number",
+                (run_id,),
+            )
+            rows = await cur.fetchall()
+        return {"run_id": run_id, "sprints": [_row_to_dict(r) for r in rows], "count": len(rows)}
+
+    # ── GET /api/pipeline/runs/{id}/files (HI-2, v1.1) ───────────────────
+
+    @app.get("/api/pipeline/runs/{run_id}/files")
+    async def pipeline_run_files_list(
+        run_id: int,
+        _session: dict = Depends(require_role("owner", "pm")),
+    ):
+        """List markdown files in workspace docs/ for the run."""
+        from pipeline.workspace import PipelineWorkspace
+        ws = PipelineWorkspace(run_id)
+        if not ws.exists():
+            return {"run_id": run_id, "files": []}
+
+        from pathlib import Path
+        files: list[dict] = []
+        # Top-level CLAUDE.md
+        claude_md = ws.path / "CLAUDE.md"
+        if claude_md.exists():
+            files.append({
+                "path": "CLAUDE.md",
+                "size": claude_md.stat().st_size,
+                "category": "root",
+            })
+        # docs/*.md
+        if ws.docs_path.exists():
+            for f in sorted(ws.docs_path.glob("*.md")):
+                files.append({
+                    "path": f"docs/{f.name}",
+                    "size": f.stat().st_size,
+                    "category": "docs",
+                })
+            # docs/sprints/*.md
+            sprints_dir = ws.docs_path / "sprints"
+            if sprints_dir.exists():
+                for f in sorted(sprints_dir.glob("*.md")):
+                    files.append({
+                        "path": f"docs/sprints/{f.name}",
+                        "size": f.stat().st_size,
+                        "category": "sprints",
+                    })
+        return {"run_id": run_id, "files": files, "count": len(files)}
+
+    @app.get("/api/pipeline/runs/{run_id}/files/{file_path:path}")
+    async def pipeline_run_file_content(
+        run_id: int,
+        file_path: str,
+        _session: dict = Depends(require_role("owner", "pm")),
+    ):
+        """Return raw text content of a file from the workspace.
+
+        Path is restricted to the workspace root (no `..` traversal allowed).
+        Only files under .md extension or no extension (e.g. CLAUDE.md) are
+        served — this is a workspace browser, not a generic file API.
+        """
+        from pipeline.workspace import PipelineWorkspace
+        from pathlib import Path
+
+        ws = PipelineWorkspace(run_id)
+        if not ws.exists():
+            raise HTTPException(404, f"workspace for run {run_id} does not exist")
+
+        # Security: resolve and ensure path is inside workspace root.
+        target = (ws.path / file_path).resolve()
+        try:
+            target.relative_to(ws.path.resolve())
+        except ValueError:
+            raise HTTPException(400, "path traversal blocked")
+
+        if not target.exists() or not target.is_file():
+            raise HTTPException(404, f"file not found: {file_path}")
+
+        # Only serve markdown or extension-less files (CLAUDE.md, README, etc.).
+        if target.suffix not in ("", ".md", ".txt"):
+            raise HTTPException(400, f"file type not allowed: {target.suffix}")
+
+        # Cap size at 1 MB to avoid streaming giant files.
+        if target.stat().st_size > 1_048_576:
+            raise HTTPException(413, "file too large (>1 MB)")
+
+        try:
+            content = target.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise HTTPException(415, "file is not utf-8 text")
+
+        return {
+            "run_id": run_id,
+            "path": file_path,
+            "size": target.stat().st_size,
+            "content": content,
+        }
+
     # ── POST /api/pipeline/runs/{id}/approve (T-3-012) ───────────────────
 
     @app.post("/api/pipeline/runs/{run_id}/approve")
