@@ -60,6 +60,14 @@ async def _spawn_runner(run_id: int) -> None:
         logger.exception("Pipeline runner background task crashed for run_id=%s", run_id)
 
 
+async def _spawn_resume(run_id: int) -> None:
+    """Background coroutine for /approve endpoint — calls runner.resume()."""
+    try:
+        await PipelineRunner(run_id).resume()
+    except Exception:  # noqa: BLE001
+        logger.exception("Pipeline resume background task crashed for run_id=%s", run_id)
+
+
 # ── Route registration ───────────────────────────────────────────────────
 
 
@@ -190,6 +198,40 @@ def mount_pipeline_routes(
             events.append(d)
 
         return {"events": events, "count": len(events), "limit": limit, "since": since}
+
+    # ── POST /api/pipeline/runs/{id}/approve (T-3-012) ───────────────────
+
+    @app.post("/api/pipeline/runs/{run_id}/approve")
+    async def pipeline_run_approve(
+        run_id: int,
+        session: dict = Depends(require_role("owner")),
+    ):
+        """Approve a run that's in awaiting_approval status, resume execution."""
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute("SELECT status FROM pipeline_runs WHERE id = ?", (run_id,))
+            row = await cur.fetchone()
+            if row is None:
+                raise HTTPException(404, f"pipeline_runs id={run_id} not found")
+            current = row["status"]
+            if current != "awaiting_approval":
+                raise HTTPException(
+                    400,
+                    f"cannot approve: status is '{current}', expected 'awaiting_approval'",
+                )
+
+        # Log + emit event
+        progress = PipelineProgress(run_id)
+        await progress.emit_event(
+            "approval_granted",
+            payload={"by_user_id": session.get("user_id")},
+            severity="info",
+        )
+
+        # Spawn resume in background — returns immediately.
+        asyncio.create_task(_spawn_resume(run_id))
+        logger.info("Pipeline run %s approved by user_id=%s", run_id, session.get("user_id"))
+        return {"id": run_id, "status": "running", "message": "approved, resuming"}
 
     # ── WS /ws/pipeline/{run_id} (T-2-012) ───────────────────────────────
 

@@ -33,6 +33,9 @@ ADMIN_PASSWORD = os.environ.get("HQ_ADMIN_PASSWORD", "WMhA3aejzKjk03OHez8iSjtV")
 ENV = os.environ.copy()
 ENV["WEB_ONLY"] = "true"
 ENV["PYTHONIOENCODING"] = "utf-8"
+# Sprint 3+: phases now make real Claude calls by default. Tests force stub
+# mode so they don't burn API tokens (and don't fail when key=disabled-not-used).
+ENV["PIPELINE_FORCE_STUB"] = "true"
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────

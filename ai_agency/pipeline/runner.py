@@ -64,12 +64,16 @@ class PipelineRunner:
         self.run_id = run_id
         self.workspace = PipelineWorkspace(run_id)
         self.progress = PipelineProgress(run_id)
+        # Cache of pipeline_runs row, refreshed at execute()/resume() entry.
+        # Phases read autonomy_level, project_type, etc. from here.
+        self.run_data: dict[str, Any] = {}
 
     # ── Public API ───────────────────────────────────────────────────────
 
     async def execute(self) -> None:
         """First-time execution: load run, init workspace, run all phases from start."""
         run = await self._load_run_or_fail()
+        self.run_data = run
         if run["status"] in ("done", "failed", "aborted"):
             logger.warning(
                 "PipelineRunner %s: refusing to execute terminal status=%s",
@@ -94,6 +98,7 @@ class PipelineRunner:
     async def resume(self) -> None:
         """Resume a run that was interrupted (rate-limit pause expired or service restart)."""
         run = await self._load_run_or_fail()
+        self.run_data = run
         if run["status"] in ("done", "failed", "aborted"):
             logger.info("PipelineRunner %s: resume() called on terminal status=%s, no-op",
                         self.run_id, run["status"])
