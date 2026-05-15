@@ -18,3 +18,8 @@ pydantic>=2.10.0,<3
 pypdf>=4.0.0
 python-docx>=1.1.0
 openpyxl>=3.1.0
+
+# Sprint 2: pipeline module — Claude Code SDK + git operations
+# Compatibility verified in T-2-001 (see docs/dependency-decisions.md)
+claude-agent-sdk>=0.2.0,<1
+GitPython>=3.1.0
