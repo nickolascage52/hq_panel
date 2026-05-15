@@ -60,6 +60,7 @@ async def _get_db() -> aiosqlite.Connection:
     db = await aiosqlite.connect(str(DB_PATH))
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA synchronous=NORMAL")  # T-2-005: faster than FULL, safe with WAL
     await db.execute("PRAGMA foreign_keys=ON")
     return db
 
@@ -74,6 +75,7 @@ async def init_db():
             logger.warning("Не удалось создать бэкап при старте: %s", e)
     async with aiosqlite.connect(str(DB_PATH)) as db:
         await db.execute("PRAGMA journal_mode=WAL")
+        await db.execute("PRAGMA synchronous=NORMAL")  # T-2-005: faster than FULL, safe with WAL
         await db.execute("PRAGMA foreign_keys=ON")
 
         await db.execute("""
