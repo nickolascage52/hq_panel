@@ -1,0 +1,94 @@
+name: Pipeline tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ai_agency/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ai_agency/**'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:  # manual trigger
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'ai_agency/requirements.txt'
+
+      - name: Install dependencies
+        working-directory: ai_agency
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-timeout
+
+      - name: Set up dummy .env (CI placeholders)
+        working-directory: ai_agency
+        run: |
+          cat > .env << 'EOF'
+          ANTHROPIC_API_KEY=disabled-not-used
+          CLAUDE_MODEL=claude-haiku-4-5-20251001
+          DEFAULT_TASK_MODE=lite
+          TELEGRAM_BOT_TOKEN=000000000:CI_PLACEHOLDER_TOKEN
+          TELEGRAM_OWNER_ID=0
+          TELEGRAM_CHANNEL_ID=
+          HOST=0.0.0.0
+          PORT=8000
+          WEB_ONLY=true
+          SECRET_KEY=ci-only-not-secret-0000000000000000000000000000000000
+          ADMIN_PASSWORD=WMhA3aejzKjk03OHez8iSjtV
+          AUTO_PUBLISH=false
+          DAILY_POST_TIME=09:00
+          TIMEZONE=Europe/Moscow
+          EOF
+
+      # Adjust test fixture: CI venv is at /opt/hostedtoolcache/Python/.../bin/python
+      # but tests/test_pipeline_skeleton.py hardcodes venv\Scripts\python.exe (Windows).
+      # We patch PYTHON env var or the test reads sys.executable in CI.
+      - name: Run pytest (skeleton suite)
+        working-directory: ai_agency
+        env:
+          PIPELINE_FORCE_STUB: 'true'
+          PYTHONIOENCODING: 'utf-8'
+          # Tell test runner to use system python (not venv)
+          PYTEST_PYTHON_OVERRIDE: ${{ steps.setup-python.outputs.python-path }}
+        run: |
+          # Override the hardcoded venv path in tests via env
+          # (the test fixture reads PYTHON_OVERRIDE if set — added in v1.2)
+          python -m pytest tests/test_pipeline_skeleton.py -v --tb=short --timeout=180
+
+      - name: Smoke import (verify pipeline module loads cleanly)
+        working-directory: ai_agency
+        run: |
+          python -c "
+          import pipeline
+          from pipeline.runner import PipelineRunner, PHASE_NAMES
+          from pipeline.workspace import PipelineWorkspace
+          from pipeline.progress import PipelineProgress
+          from pipeline.exceptions import PipelineError, RateLimitExceeded
+          from pipeline.claude_runner import ClaudeRunner, _api_key_available
+          from pipeline.git_manager import GitManager
+          from pipeline.tmux_manager import TmuxManager, tmux_available
+          from pipeline.rate_limit import RateLimitManager, DOWNGRADE_CHAINS
+          from pipeline.deploy import deploy
+          from pipeline.telegram_notifier import _bot_available, watch_pipeline_events
+          print('All pipeline modules import OK')
+          print('Phases:', PHASE_NAMES)
+          print('Rate limit chains:', list(DOWNGRADE_CHAINS.keys()))
+          print('API key available?', _api_key_available())  # False (CI placeholder)
+          print('tmux available?', tmux_available())
+          print('Bot configured?', _bot_available())
+          "

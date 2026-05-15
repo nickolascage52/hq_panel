@@ -1512,6 +1512,13 @@ def create_bot_application() -> Application:
     app_builder.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app_builder.add_handler(CallbackQueryHandler(handle_callback))
 
+    # v1.2: AI Pipeline commands (extension — no modification of existing handlers above)
+    try:
+        from pipeline.telegram_commands import register_pipeline_commands
+        register_pipeline_commands(app_builder)
+    except Exception as e:  # noqa: BLE001 — never block bot startup on pipeline issue
+        logger.warning("Pipeline TG commands not registered: %s", e)
+
     return app_builder
 
 

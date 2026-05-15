@@ -23,7 +23,15 @@ import pytest
 
 # ai_agency/ root (one up from tests/)
 ROOT = Path(__file__).resolve().parent.parent
-PYTHON = str(ROOT / "venv" / "Scripts" / "python.exe")
+
+# Prefer venv python (Windows local dev). In CI (Linux GitHub Actions),
+# venv is not built — fall back to current sys.executable, which has all
+# requirements.txt installed by the workflow.
+_venv_python = ROOT / "venv" / "Scripts" / "python.exe"
+PYTHON = (
+    os.environ.get("PYTEST_PYTHON_OVERRIDE")
+    or (str(_venv_python) if _venv_python.exists() else sys.executable)
+)
 MAIN = str(ROOT / "main.py")
 DB = str(ROOT / "agency.db")
 HTTP_BASE = "http://127.0.0.1:8000"

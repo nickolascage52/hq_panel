@@ -199,6 +199,46 @@ def mount_pipeline_routes(
 
         return {"events": events, "count": len(events), "limit": limit, "since": since}
 
+    # ── GET /api/pipeline/rate-limits (v1.2) ─────────────────────────────
+
+    @app.get("/api/pipeline/rate-limits")
+    async def pipeline_rate_limits(
+        _session: dict = Depends(require_role("owner", "pm")),
+    ):
+        """Current rate limit state per model (Sprint 4 RateLimitManager).
+
+        Returns {model: {weekly_used, weekly_limit, pct, reset_at, last_updated}}
+        plus a derived `status` per model:
+        - 'ok'        — pct < 70
+        - 'warning'   — pct >= 70 (downgrade kicks in)
+        - 'critical'  — pct >= 90 (pause threshold)
+        """
+        from pipeline.rate_limit import (
+            RateLimitManager,
+            WEEKLY_DOWNGRADE_THRESHOLD,
+            WEEKLY_PAUSE_THRESHOLD,
+        )
+        rl = RateLimitManager()
+        state = await rl.get_state()
+        out = {}
+        for model, s in state.items():
+            pct = s.get("pct", 0)
+            if pct >= WEEKLY_PAUSE_THRESHOLD:
+                status = "critical"
+            elif pct >= WEEKLY_DOWNGRADE_THRESHOLD:
+                status = "warning"
+            else:
+                status = "ok"
+            out[model] = {**s, "status": status}
+        return {
+            "models": out,
+            "should_pause": await rl.should_pause(),
+            "thresholds": {
+                "downgrade": WEEKLY_DOWNGRADE_THRESHOLD,
+                "pause": WEEKLY_PAUSE_THRESHOLD,
+            },
+        }
+
     # ── GET /api/pipeline/runs/{id}/sprints (HI-3, v1.1) ─────────────────
 
     @app.get("/api/pipeline/runs/{run_id}/sprints")

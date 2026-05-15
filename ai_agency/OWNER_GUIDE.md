@@ -17,6 +17,19 @@
 | /deadlines | Дедлайны |
 | /agent [имя] [задача] | Прямой чат с агентом |
 
+### AI Pipeline команды (v1.2)
+
+| Команда | Что делает |
+|---------|------------|
+| /pipelines | Последние 10 pipeline-runs |
+| /run \<id\> | Детали одного run + последние события |
+| /approve \<id\> | Approve run в статусе awaiting_approval |
+| /pause \<id\> | Поставить running run на паузу |
+| /resume \<id\> | Возобновить paused / awaiting_approval run |
+| /abort \<id\> | Отменить run (необратимо) |
+
+Все pipeline-команды работают только для владельца (TELEGRAM_OWNER_ID). Можно управлять pipeline с телефона без открытия HQ.
+
 ## Если что-то не работает
 
 ### Перезапустить систему

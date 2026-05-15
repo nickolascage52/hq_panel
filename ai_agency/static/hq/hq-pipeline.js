@@ -80,6 +80,11 @@
       return _fetchJson(`${BASE}/runs/${id}/sprints`);
     },
 
+    // v1.2: rate limits state for pipeline.html indicator
+    async getRateLimits() {
+      return _fetchJson(`${BASE}/rate-limits`);
+    },
+
     async listFiles(id) {
       return _fetchJson(`${BASE}/runs/${id}/files`);
     },

@@ -188,9 +188,39 @@
       document.getElementById('create-form').addEventListener('submit', onSubmit);
 
       await refreshRuns();
-      // Auto-refresh active list every 5s.
+      await refreshRateLimits();
+      // Auto-refresh active list every 5s; rate limits every 60s (slow-changing).
       refreshTimer = setInterval(refreshRuns, 5000);
+      setInterval(refreshRateLimits, 60000);
     });
+
+    async function refreshRateLimits() {
+      try {
+        const data = await HQPipeline.getRateLimits();
+        const models = data.models || {};
+        const order = ['opus', 'sonnet', 'haiku'];
+        const parts = order.filter(m => models[m]).map(m => {
+          const s = models[m];
+          const pct = Math.round(s.pct || 0);
+          const color = s.status === 'critical' ? '#fca5a5'
+                      : s.status === 'warning'  ? '#fde047'
+                      : '#86efac';
+          const icon = s.status === 'critical' ? '🔴' : (s.status === 'warning' ? '🟡' : '🟢');
+          return `<span title="${m}: ${pct}% used (${s.status})" style="color: ${color}">${icon} ${m} ${pct}%</span>`;
+        });
+        const indicator = document.getElementById('rate-limit-indicator');
+        if (data.should_pause) {
+          indicator.innerHTML = `⛔ ALL LIMITS REACHED &nbsp; ${parts.join(' · ')}`;
+          indicator.style.color = '#fca5a5';
+        } else {
+          indicator.innerHTML = parts.join(' · ');
+          indicator.style.color = '';
+        }
+      } catch (err) {
+        // Silent — rate limit indicator is bonus UX, not critical.
+        console.warn('rate-limit refresh failed:', err);
+      }
+    }
 
     async function refreshRuns() {
       const status = document.getElementById('filter-status').value;
