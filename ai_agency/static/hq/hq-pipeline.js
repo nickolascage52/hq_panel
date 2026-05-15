@@ -69,11 +69,10 @@
       return _fetchJson(`${BASE}/runs/${id}/approve`, { method: 'POST' });
     },
 
-    // Pause/resume/abort endpoints — backlog v1.1.
-    // Stubs return informative errors so UI can show a TODO toast.
-    async pauseRun(id) { throw new Error('Pause endpoint — v1.1 backlog'); },
-    async resumeRun(id) { throw new Error('Resume endpoint — v1.1 backlog'); },
-    async abortRun(id) { throw new Error('Abort endpoint — v1.1 backlog'); },
+    // Pause/Resume/Abort — backend implemented (post-v1.0 polish).
+    async pauseRun(id) { return _fetchJson(`${BASE}/runs/${id}/pause`, { method: 'POST' }); },
+    async resumeRun(id) { return _fetchJson(`${BASE}/runs/${id}/resume`, { method: 'POST' }); },
+    async abortRun(id) { return _fetchJson(`${BASE}/runs/${id}/abort`, { method: 'POST' }); },
 
     // ── WebSocket live events ────────────────────────────────────────
 

@@ -171,9 +171,9 @@
           </div>
           <div class="actions-bar">
             <button class="btn btn-primary" id="btn-approve" ${canApprove ? '' : 'disabled'}>Approve</button>
-            <button class="btn" disabled title="v1.1">Pause</button>
-            <button class="btn" disabled title="v1.1">Resume</button>
-            <button class="btn" disabled title="v1.1">Abort</button>
+            <button class="btn" id="btn-pause" ${(r.status === 'running' || r.status === 'pending') ? '' : 'disabled'}>Pause</button>
+            <button class="btn" id="btn-resume" ${['paused_user','paused_rate_limit','awaiting_approval'].includes(r.status) ? '' : 'disabled'}>Resume</button>
+            <button class="btn" id="btn-abort" ${['done','aborted','failed'].includes(r.status) ? 'disabled' : ''}>Abort</button>
           </div>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width: ${progress}%"></div></div>
@@ -188,6 +188,27 @@
       `;
       const approveBtn = document.getElementById('btn-approve');
       if (approveBtn) approveBtn.addEventListener('click', onApprove);
+      const pauseBtn = document.getElementById('btn-pause');
+      if (pauseBtn) pauseBtn.addEventListener('click', () => onAction('pause', 'Pause this run?'));
+      const resumeBtn = document.getElementById('btn-resume');
+      if (resumeBtn) resumeBtn.addEventListener('click', () => onAction('resume', null));
+      const abortBtn = document.getElementById('btn-abort');
+      if (abortBtn) abortBtn.addEventListener('click', () => onAction('abort', 'Abort this run? This cannot be undone.'));
+    }
+
+    async function onAction(action, confirmMsg) {
+      if (confirmMsg && !confirm(confirmMsg)) return;
+      const btn = document.getElementById('btn-' + action);
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      try {
+        if (action === 'pause') await HQPipeline.pauseRun(runId);
+        else if (action === 'resume') await HQPipeline.resumeRun(runId);
+        else if (action === 'abort') await HQPipeline.abortRun(runId);
+        await loadRun();
+      } catch (err) {
+        alert(action + ' failed: ' + err.message);
+        await loadRun();  // restore button state from latest data
+      }
     }
 
     function renderCurrentPhase(r) {

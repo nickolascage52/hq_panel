@@ -233,6 +233,101 @@ def mount_pipeline_routes(
         logger.info("Pipeline run %s approved by user_id=%s", run_id, session.get("user_id"))
         return {"id": run_id, "status": "running", "message": "approved, resuming"}
 
+    # ── POST /api/pipeline/runs/{id}/pause | resume | abort (HI-1, post-v1.0) ────
+
+    @app.post("/api/pipeline/runs/{run_id}/pause")
+    async def pipeline_run_pause(
+        run_id: int,
+        session: dict = Depends(require_role("owner")),
+    ):
+        """Manually pause a running pipeline-run.
+
+        Sets status='paused_user' + pause_reason. The runner sees this on its
+        next phase boundary (cooperative — phases don't pre-empt mid-call).
+        """
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute("SELECT status FROM pipeline_runs WHERE id=?", (run_id,))
+            row = await cur.fetchone()
+            if row is None:
+                raise HTTPException(404, f"pipeline_runs id={run_id} not found")
+            current = row["status"]
+            if current not in ("running", "pending"):
+                raise HTTPException(
+                    400, f"cannot pause: status='{current}', expected running/pending",
+                )
+            await db.execute(
+                "UPDATE pipeline_runs SET status='paused_user', "
+                "paused_at=CURRENT_TIMESTAMP, pause_reason='manual pause by owner' "
+                "WHERE id=?",
+                (run_id,),
+            )
+            await db.commit()
+        await PipelineProgress(run_id).emit_event(
+            "paused", payload={"reason": "manual", "by_user_id": session.get("user_id")},
+            severity="warning",
+        )
+        logger.info("Pipeline run %s paused by user_id=%s", run_id, session.get("user_id"))
+        return {"id": run_id, "status": "paused_user"}
+
+    @app.post("/api/pipeline/runs/{run_id}/resume")
+    async def pipeline_run_resume(
+        run_id: int,
+        session: dict = Depends(require_role("owner")),
+    ):
+        """Resume from any paused state (paused_user, paused_rate_limit, awaiting_approval)."""
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute("SELECT status FROM pipeline_runs WHERE id=?", (run_id,))
+            row = await cur.fetchone()
+            if row is None:
+                raise HTTPException(404, f"pipeline_runs id={run_id} not found")
+            current = row["status"]
+            if current not in ("paused_user", "paused_rate_limit", "awaiting_approval"):
+                raise HTTPException(
+                    400,
+                    f"cannot resume: status='{current}', expected paused_user/paused_rate_limit/awaiting_approval",
+                )
+        await PipelineProgress(run_id).emit_event(
+            "resumed", payload={"by_user_id": session.get("user_id"), "from_status": current},
+        )
+        asyncio.create_task(_spawn_resume(run_id))
+        logger.info("Pipeline run %s resumed by user_id=%s", run_id, session.get("user_id"))
+        return {"id": run_id, "status": "running", "message": f"resumed from {current}"}
+
+    @app.post("/api/pipeline/runs/{run_id}/abort")
+    async def pipeline_run_abort(
+        run_id: int,
+        session: dict = Depends(require_role("owner")),
+    ):
+        """Terminate a run. Marks status='aborted'. Workspace is preserved on disk
+        for audit (manual cleanup via PipelineWorkspace.cleanup() if needed)."""
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute("SELECT status FROM pipeline_runs WHERE id=?", (run_id,))
+            row = await cur.fetchone()
+            if row is None:
+                raise HTTPException(404, f"pipeline_runs id={run_id} not found")
+            current = row["status"]
+            if current in ("done", "aborted", "failed"):
+                raise HTTPException(
+                    400, f"cannot abort: already terminal ('{current}')",
+                )
+            await db.execute(
+                "UPDATE pipeline_runs SET status='aborted', "
+                "completed_at=CURRENT_TIMESTAMP, error_message='aborted by owner' "
+                "WHERE id=?",
+                (run_id,),
+            )
+            await db.commit()
+        await PipelineProgress(run_id).emit_event(
+            "run_aborted", payload={"by_user_id": session.get("user_id"), "from_status": current},
+            severity="warning",
+        )
+        logger.info("Pipeline run %s aborted by user_id=%s (was %s)",
+                    run_id, session.get("user_id"), current)
+        return {"id": run_id, "status": "aborted"}
+
     # ── WS /ws/pipeline/{run_id} (T-2-012) ───────────────────────────────
 
     @app.websocket("/ws/pipeline/{run_id}")

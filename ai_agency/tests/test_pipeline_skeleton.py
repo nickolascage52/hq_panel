@@ -41,7 +41,9 @@ ENV["PIPELINE_FORCE_STUB"] = "true"
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
 
-def _wait_ready(timeout: float = 30.0) -> bool:
+def _wait_ready(timeout: float = 60.0) -> bool:
+    # Sprint 4 added claude-agent-sdk + GitPython + transitive cryptography etc.
+    # Cold import + uvicorn startup can take ~25-30s. 60s gives buffer.
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
