@@ -546,6 +546,7 @@ async def init_db():
     await _migrate_delivery_templates_expand()
     await _seed_owner_user()
     await _seed_delivery_templates()
+    await _add_pipeline_tables_v1()
 
 
 async def _migrate_delivery_templates_expand() -> None:
@@ -3744,3 +3745,137 @@ async def _seed_delivery_templates() -> None:
             )
         await db.commit()
         logger.info("Seeded %d project templates", expected)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# T-2-004 (Sprint 2): pipeline module tables
+# Idempotent — uses CREATE TABLE IF NOT EXISTS + INSERT OR IGNORE.
+# Schema source: docs/ARCHITECTURE.md §5 + pipeline_module_seed/pipeline_sql_seed.sql
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def _add_pipeline_tables_v1() -> None:
+    """Create pipeline_runs, pipeline_sprints, pipeline_events,
+    pipeline_chat_messages, pipeline_rate_limits + indexes + seed.
+    """
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        # pipeline_runs — главная сущность
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                delivery_project_id INTEGER REFERENCES delivery_projects(id),
+                title TEXT NOT NULL,
+                raw_idea TEXT NOT NULL,
+                production_prompt TEXT,
+                project_type TEXT NOT NULL,
+                autonomy_level INTEGER NOT NULL DEFAULT 2,
+                deploy_strategy TEXT NOT NULL DEFAULT 'none',
+                status TEXT NOT NULL DEFAULT 'pending',
+                current_phase TEXT,
+                current_sprint_id INTEGER,
+                workspace_path TEXT,
+                tmux_session_name TEXT,
+                git_branch TEXT,
+                github_repo_url TEXT,
+                started_at TIMESTAMP,
+                paused_at TIMESTAMP,
+                pause_reason TEXT,
+                resume_after TIMESTAMP,
+                completed_at TIMESTAMP,
+                initiated_by INTEGER REFERENCES hq_users(id),
+                error_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_runs_delivery_project ON pipeline_runs(delivery_project_id)")
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_runs_resume_after "
+            "ON pipeline_runs(resume_after) WHERE resume_after IS NOT NULL"
+        )
+
+        # pipeline_sprints — спринты внутри pipeline-run (Phase 4+)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_sprints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
+                delivery_stage_id INTEGER REFERENCES delivery_stages(id),
+                sprint_number INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                goal TEXT,
+                spec_md TEXT,
+                status TEXT NOT NULL DEFAULT 'planned',
+                tasks_total INTEGER DEFAULT 0,
+                tasks_done INTEGER DEFAULT 0,
+                tasks_failed INTEGER DEFAULT 0,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(run_id, sprint_number)
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_sprints_run ON pipeline_sprints(run_id)")
+
+        # pipeline_events — лента событий
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
+                sprint_id INTEGER REFERENCES pipeline_sprints(id),
+                delivery_task_id INTEGER REFERENCES delivery_tasks(id),
+                event_type TEXT NOT NULL,
+                severity TEXT DEFAULT 'info',
+                payload_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_events_run "
+            "ON pipeline_events(run_id, created_at DESC)"
+        )
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_pipeline_events_type ON pipeline_events(event_type)")
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_events_sprint "
+            "ON pipeline_events(sprint_id) WHERE sprint_id IS NOT NULL"
+        )
+
+        # pipeline_chat_messages — чат с pipeline в контексте проекта
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER NOT NULL REFERENCES pipeline_runs(id) ON DELETE CASCADE,
+                role TEXT NOT NULL,
+                agent_name TEXT,
+                content_md TEXT NOT NULL,
+                metadata_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_chat_run "
+            "ON pipeline_chat_messages(run_id, created_at)"
+        )
+
+        # pipeline_rate_limits — состояние лимитов на 3 модели
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_rate_limits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                model TEXT NOT NULL UNIQUE,
+                tokens_used_weekly INTEGER DEFAULT 0,
+                tokens_limit_weekly INTEGER,
+                weekly_reset_at TIMESTAMP,
+                tokens_used_session INTEGER DEFAULT 0,
+                session_reset_at TIMESTAMP,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Seed: 3 строки для известных моделей. INSERT OR IGNORE — идемпотентно.
+        for model in ("opus", "sonnet", "haiku"):
+            await db.execute(
+                "INSERT OR IGNORE INTO pipeline_rate_limits (model) VALUES (?)",
+                (model,),
+            )
+
+        await db.commit()
+        logger.info("Pipeline tables ready (pipeline_runs, _sprints, _events, _chat_messages, _rate_limits)")
