@@ -1,0 +1,146 @@
+/**
+ * HQ — дополнение к style.css: toast, компактные табы аналитики,
+ * быстрое добавление в канбане, mobile nav, bottom sheets.
+ */
+
+@keyframes hq-slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.hq-toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hq-toast {
+  pointer-events: auto;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #fff;
+  border-left: 3px solid #22c55e;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  animation: hq-slideIn 0.2s ease;
+  max-width: min(300px, 92vw);
+}
+
+.hq-toast--error {
+  border-left-color: #ef4444;
+}
+.hq-toast--warning {
+  border-left-color: #f59e0b;
+}
+.hq-toast--info {
+  border-left-color: #00d4ff;
+}
+
+.kb-col-quick {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hq-border);
+}
+
+.kb-col-quick input.quick-add-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--hq-border);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--hq-text);
+}
+
+.kanban-card.sent-to-team {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.btn-team-send {
+  font-size: 11px;
+}
+
+/* Аналитика — компактные табы поверх .aq-tabs */
+body.hq-body .aq-tabs.analytics-tabs-compact .btn.btn-sm.aq-tab {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+}
+
+body.hq-body .aq-tabs.analytics-tabs-compact .btn.btn-sm.aq-tab.active {
+  border-bottom-color: var(--hq-accent);
+  color: var(--hq-text);
+}
+
+/* Quick actions bar (дашборд) */
+.hq-quick-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--hq-border);
+  background: var(--hq-sidebar-bg);
+  flex-shrink: 0;
+}
+
+/* Новый класс mobile-nav (если добавят на страницу без mobile-bottom-nav) */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Канбан: горизонтальный скролл колонок */
+  body.hq-body .hq-content.kb,
+  body.hq-body .kb {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    align-items: flex-start !important;
+  }
+
+  body.hq-body .kb-col {
+    min-width: 260px;
+    max-width: 280px;
+    flex: 0 0 auto !important;
+    max-height: min(70dvh, 520px);
+  }
+
+  .mobile-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: rgba(17, 17, 17, 0.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--hq-border);
+    z-index: 100;
+    align-items: stretch;
+    justify-content: space-around;
+  }
+}

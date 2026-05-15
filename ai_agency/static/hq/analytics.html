@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — Аналитика</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    .hq-analytics-wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 0 !important; }
+    .analytics-content { flex: 1; min-height: 0; width: 100%; }
+    .analytics-card .sources-inner { display: flex; gap: 10px; align-items: center; flex: 1; min-height: 0; }
+    .analytics-card .sources-inner .chart-host { flex: 0 0 42%; max-width: 180px; min-height: 0; }
+    .analytics-card .sources-legend { flex: 1; font-size: 11px; color: var(--hq-text-secondary); overflow-y: auto; min-height: 0; min-width: 0; }
+    .aq-tabs {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 4px;
+      flex-shrink: 0;
+      margin-bottom: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
+    .aq-tabs .btn.btn-sm.aq-tab {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      flex: 0 0 auto;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--hq-border);
+      color: var(--hq-text-secondary);
+    }
+    .aq-tabs .btn.btn-sm.aq-tab.active {
+      background: rgba(124,58,237,0.22);
+      border-color: rgba(124,58,237,0.45);
+      color: var(--hq-text);
+    }
+    .aq-panel { display: none; flex: 1; min-height: 0; overflow-y: auto; flex-direction: column; gap: 12px; width: 100%; }
+    .aq-panel.active { display: flex; }
+    .aq-overview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .aq-overview-table th, .aq-overview-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .aq-overview-table th { color: var(--hq-text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .aq-overview-table td:last-child { font-weight: 600; color: var(--hq-cyan); text-align: right; font-variant-numeric: tabular-nums; }
+    .ue-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .ue-month-input {
+      min-width: 150px;
+      background:#111;
+      border:1px solid var(--hq-border);
+      color:var(--hq-text);
+      border-radius:8px;
+      padding:8px 10px;
+      font:inherit;
+    }
+    .ue-subtitle { font-size:12px; color:var(--hq-text-secondary); margin-top:4px; }
+    .ue-grid-extended { display:grid; grid-template-columns: 1.15fr 0.85fr; gap:16px; }
+    .ue-section-card {
+      border:1px solid var(--hq-border);
+      border-radius:12px;
+      background:#111;
+      padding:14px;
+      min-height:0;
+      min-width:0;
+    }
+    .unit-economics > *, .ue-grid-extended, .ue-meta-grid, .ue-input-grid, .ue-summary-grid { min-width:0; }
+    .ue-input-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+    .ue-field textarea {
+      min-height:96px;
+      resize:vertical;
+      background:#111;
+      border:1px solid rgba(255,255,255,0.08);
+      color:var(--hq-text);
+      border-radius:8px;
+      padding:10px 12px;
+      font:inherit;
+    }
+    .ue-summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+    .ue-meta-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+    .ue-data-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .ue-data-table th, .ue-data-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.06); text-align:left; }
+    .ue-data-table th { color:var(--hq-text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+    .ue-data-table td:last-child { text-align:right; color:var(--hq-text); font-variant-numeric:tabular-nums; }
+    .ue-history-wrap { max-height:280px; border:1px solid var(--hq-border); border-radius:12px; overflow:auto; }
+    .ue-chart-wrap { min-width:0; overflow:hidden; }
+    .ue-chart-wrap canvas { width:100% !important; max-width:100% !important; }
+    .ue-history-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .ue-history-table th, .ue-history-table td { padding:10px; border-bottom:1px solid rgba(255,255,255,0.06); text-align:left; white-space:nowrap; }
+    .ue-history-table th { position:sticky; top:0; background:#0f1117; z-index:1; color:var(--hq-text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+    .ue-history-table td:last-child { text-align:right; }
+    .ue-history-table tr:hover { background:rgba(255,255,255,0.02); }
+    .ue-link-btn { border:none; background:none; color:var(--hq-accent-hover); cursor:pointer; padding:0; font:inherit; font-weight:600; }
+    .ue-link-btn:hover { color:var(--hq-text); }
+    .ue-save-state { font-size:12px; color:var(--hq-text-secondary); }
+    .ue-overview-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+    .ue-overview-card { display:flex; flex-direction:column; gap:12px; }
+    .ue-kv { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+    .ue-kv-item { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px; min-width:0; }
+    .ue-kv-label { display:block; font-size:11px; color:var(--hq-text-secondary); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.04em; }
+    .ue-kv-value { display:block; font-size:14px; color:var(--hq-text); font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+    .ue-actions-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .ue-modal-overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.62);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      z-index:120;
+    }
+    .ue-modal-overlay.is-open { display:flex; }
+    .ue-modal {
+      width:min(980px, 96vw);
+      max-height:min(88vh, 920px);
+      background:#111319;
+      border:1px solid var(--hq-border);
+      border-radius:16px;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      box-shadow:0 24px 80px rgba(0,0,0,0.55);
+    }
+    .ue-modal-header, .ue-modal-footer {
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+    }
+    .ue-modal-footer { border-bottom:none; border-top:1px solid rgba(255,255,255,0.06); justify-content:flex-end; }
+    .ue-modal-body { padding:16px; overflow:auto; min-height:0; }
+    .ue-modal-close { border:none; background:none; color:var(--hq-text-secondary); font-size:26px; line-height:1; cursor:pointer; }
+    .ue-note-preview {
+      border:1px dashed rgba(255,255,255,0.1);
+      border-radius:12px;
+      padding:12px;
+      color:var(--hq-text-secondary);
+      font-size:13px;
+      white-space:pre-wrap;
+      min-height:72px;
+    }
+    @media (max-width: 980px) {
+      .ue-grid-extended, .ue-meta-grid, .ue-input-grid, .ue-summary-grid, .ue-overview-grid, .ue-kv { grid-template-columns:1fr; }
+      .ue-toolbar { align-items:stretch; }
+    }
+    @media (max-width: 780px) {
+      .ue-history-table thead { display:none; }
+      .ue-history-table, .ue-history-table tbody, .ue-history-table tr, .ue-history-table td { display:block; width:100%; }
+      .ue-history-table tr { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+      .ue-history-table td {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        padding:6px 10px;
+        white-space:normal;
+      }
+      .ue-history-table td::before {
+        content: attr(data-label);
+        color:var(--hq-text-secondary);
+        font-size:11px;
+        text-transform:uppercase;
+        letter-spacing:0.04em;
+      }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online" id="sysSt"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Аналитика</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-analytics-wrap">
+      <div class="analytics-content">
+        <div class="aq-tabs analytics-tabs-compact" role="tablist">
+          <button type="button" class="btn btn-sm active aq-tab" data-aq="overview" role="tab">Обзор</button>
+          <button type="button" class="btn btn-sm aq-tab" data-aq="fin" role="tab">Финансы</button>
+          <button type="button" class="btn btn-sm aq-tab" data-aq="funnel" role="tab">Воронка</button>
+          <button type="button" class="btn btn-sm aq-tab" data-aq="sources" role="tab">Источники</button>
+          <button type="button" class="btn btn-sm aq-tab" data-aq="ue" role="tab">Юнит-экономика</button>
+          <button type="button" class="btn btn-sm aq-tab" data-aq="ai" role="tab">ИИ-анализ</button>
+        </div>
+
+        <div id="aq-overview" class="aq-panel active" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Метрики из БД</div>
+          </div>
+          <div class="scroll-y" style="flex:1;min-height:0;">
+            <table class="aq-overview-table">
+              <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
+              <tbody id="overviewMetricsTbody"><tr><td colspan="2" style="color:var(--hq-muted);padding:12px;">Загрузка…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Источники дохода</div>
+          </div>
+          <div class="scroll-y" style="flex:1;min-height:0;padding:0 12px 12px;">
+            <div id="revenue-breakdown" style="color:var(--hq-text);">Загрузка…</div>
+          </div>
+        </div>
+        </div>
+
+        <div id="aq-fin" class="aq-panel" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Посетители</div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button type="button" class="btn btn-ghost btn-sm" id="btnYHelp"><i data-lucide="plug" style="width:14px;height:14px;"></i></button>
+              <button type="button" class="btn btn-sm" id="btnYRefresh">Обновить кэш</button>
+            </div>
+          </div>
+          <div class="chart-host">
+            <canvas id="chYaLine"></canvas>
+          </div>
+        </div>
+
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Выручка по месяцам</div>
+          </div>
+          <div class="chart-host">
+            <canvas id="chRev"></canvas>
+          </div>
+        </div>
+
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">P&amp;L по месяцам</div>
+          </div>
+          <div class="scroll-y" style="max-height:240px;font-size:12px;">
+            <table class="data" style="width:100%;border-collapse:collapse;">
+              <thead><tr><th>Месяц</th><th>Выручка</th><th>Расход</th><th>Прибыль</th></tr></thead>
+              <tbody id="plTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+
+        <div id="aq-funnel" class="aq-panel" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Воронка CRM</div>
+          </div>
+          <div id="funnelStats" style="padding:8px 12px;font-size:13px;color:var(--hq-text-secondary);">Загрузка…</div>
+          <div class="chart-host" style="min-height:220px;">
+            <canvas id="chFunnel"></canvas>
+          </div>
+        </div>
+        </div>
+
+        <div id="aq-sources" class="aq-panel" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Источники трафика (Метрика)</div>
+          </div>
+          <div class="sources-inner">
+            <div class="chart-host"><canvas id="chYaPie"></canvas></div>
+            <div class="sources-legend" id="srcLegend"></div>
+          </div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">Клиенты по источнику (CRM)</div>
+          </div>
+          <div class="scroll-y" style="max-height:280px;">
+            <table class="data" style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr><th>Источник</th><th>Клиентов</th><th>Оплачено</th></tr></thead>
+              <tbody id="crmSourcesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+
+        <div id="aq-ue" class="aq-panel" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div>
+              <div class="card-title">Юнит-экономика</div>
+              <div class="ue-subtitle">Помесячные данные с сохранением в БД: план, факт, расходы, воронка, CAC, LTV, ROI и история.</div>
+            </div>
+            <div class="ue-toolbar">
+              <button type="button" class="btn btn-ghost btn-sm" id="uePrevMonth">←</button>
+              <input type="month" id="ueMonth" class="ue-month-input" />
+              <button type="button" class="btn btn-ghost btn-sm" id="ueNextMonth">→</button>
+              <button type="button" class="btn btn-primary btn-sm" id="ueSaveBtn">Сохранить</button>
+            </div>
+          </div>
+          <div class="unit-economics">
+            <div class="ue-save-state" id="ueSaveState">Выберите месяц и внесите данные.</div>
+            <div class="ue-overview-grid">
+              <div class="ue-section-card ue-overview-card">
+                <div>
+                  <h3 style="margin-bottom:6px;">Исходные данные</h3>
+                  <div class="ue-subtitle">Вводите цифры в отдельном модальном окне, а здесь остаётся компактная сводка по месяцу.</div>
+                </div>
+                <div class="ue-kv" id="ueSourcePreview">
+                  <div class="ue-kv-item"><span class="ue-kv-label">Факт выручки</span><span class="ue-kv-value" id="ue_preview_revenue">0 ₽</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">Расходы</span><span class="ue-kv-value" id="ue_preview_expenses">0 ₽</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">Лиды / клиенты</span><span class="ue-kv-value" id="ue_preview_funnel">0 / 0</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">Комментарий</span><span class="ue-kv-value" id="ue_preview_notes">—</span></div>
+                </div>
+                <div class="ue-actions-row">
+                  <button type="button" class="btn btn-primary btn-sm" id="ueOpenInputModal">Исходные данные</button>
+                </div>
+              </div>
+              <div class="ue-section-card ue-overview-card">
+                <div>
+                  <h3 style="margin-bottom:6px;">Ключевые выводы</h3>
+                  <div class="ue-subtitle">Главные цифры месяца и быстрый переход в детальную модалку с метриками.</div>
+                </div>
+                <div class="ue-kv" id="ueHighlightsPreview">
+                  <div class="ue-kv-item"><span class="ue-kv-label">Прибыль</span><span class="ue-kv-value" id="ue_preview_profit">0 ₽</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">Маржа</span><span class="ue-kv-value" id="ue_preview_margin">0%</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">CAC</span><span class="ue-kv-value" id="ue_preview_cac">0 ₽</span></div>
+                  <div class="ue-kv-item"><span class="ue-kv-label">LTV / CAC</span><span class="ue-kv-value" id="ue_preview_ltv_cac">—</span></div>
+                </div>
+                <div class="ue-actions-row">
+                  <button type="button" class="btn btn-ghost btn-sm" id="ueOpenSummaryModal">Ключевые выводы</button>
+                </div>
+              </div>
+            </div>
+            <div class="ue-meta-grid">
+              <div class="ue-section-card">
+                <h3>Финансовая таблица</h3>
+                <table class="ue-data-table">
+                  <tbody id="ueFinanceTbody"></tbody>
+                </table>
+              </div>
+              <div class="ue-section-card">
+                <h3>Воронка и конверсии</h3>
+                <table class="ue-data-table">
+                  <tbody id="ueFunnelTbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="ue-chart-wrap">
+              <canvas id="ue-chart" height="80"></canvas>
+            </div>
+            <div class="ue-section-card">
+              <h3>История по месяцам</h3>
+              <div class="ue-history-wrap">
+                <table class="ue-history-table">
+                  <thead>
+                    <tr>
+                      <th>Месяц</th>
+                      <th>Факт</th>
+                      <th>Расход</th>
+                      <th>Прибыль</th>
+                      <th>Маржа</th>
+                      <th>CAC</th>
+                      <th>Клиенты</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="ueHistoryTbody">
+                    <tr><td colspan="8" style="color:var(--hq-muted);">Загрузка...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div id="aq-ai" class="aq-panel" role="tabpanel">
+        <div class="analytics-card">
+          <div class="analytics-card-header">
+            <div class="card-title">ИИ-анализ и KPI</div>
+          </div>
+          <div id="kpiBlock" style="padding:12px;font-size:13px;line-height:1.55;color:var(--hq-text-secondary);white-space:pre-wrap;">Загрузка…</div>
+          <p style="padding:0 12px 12px;font-size:12px;color:var(--hq-muted);margin:0;">Детальный разбор — в разделе <a href="team.html" style="color:var(--hq-accent-hover);">AI Команда</a>: попросите Chief of Staff или аналитика интерпретировать цифры.</p>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-host"></div>
+
+  <div class="auth-overlay" id="mAuth">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <input type="password" id="pw" placeholder="Пароль" />
+      <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="mHelp">
+    <div class="modal modal-wrap-inner">
+      <strong>Подключение Яндекс.Метрики</strong>
+      <ol style="color:var(--hq-text-secondary);font-size:13px;padding-left:1.2rem;line-height:1.55;margin:12px 0;">
+        <li>OAuth-приложение Яндекса, токен с доступом к Метрике.</li>
+        <li>В .env: <code style="color:var(--hq-cyan)">YANDEX_METRIKA_OAUTH_TOKEN</code> и <code style="color:var(--hq-cyan)">YANDEX_METRIKA_COUNTER_ID</code>.</li>
+        <li>«Обновить кэш» или POST /api/metrics/refresh.</li>
+      </ol>
+      <button type="button" class="btn" id="btnHelpClose" style="width:100%;">Понятно</button>
+    </div>
+  </div>
+
+  <div class="ue-modal-overlay" id="ueInputModal">
+    <div class="ue-modal" onclick="event.stopPropagation()">
+      <div class="ue-modal-header">
+        <div>
+          <div class="card-title">Исходные данные юнит-экономики</div>
+          <div class="ue-subtitle">Введите цифры месяца в удобной форме, затем сохраните изменения.</div>
+        </div>
+        <button type="button" class="ue-modal-close" id="ueInputModalClose" aria-label="Закрыть">×</button>
+      </div>
+      <div class="ue-modal-body">
+        <div class="ue-input-grid">
+          <div class="ue-field">
+            <label for="ue_revenue_plan">План выручки</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_revenue_plan" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_revenue_fact">Факт выручки</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_revenue_fact" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_cash_received">Деньги получено</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_cash_received" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_cash_expected">Деньги ожидается</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_cash_expected" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_expenses_marketing">Маркетинг</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_expenses_marketing" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_expenses_operating">Операционные расходы</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_expenses_operating" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_leads">Лиды</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_leads" value="0" min="0" />
+              <span class="ue-unit">шт</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_qualified_leads">Квалифицированные лиды</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_qualified_leads" value="0" min="0" />
+              <span class="ue-unit">шт</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_clients">Клиенты</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_clients" value="0" min="0" />
+              <span class="ue-unit">шт</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_avg_check_override">Средний чек</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_avg_check_override" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_ltv">LTV</label>
+            <div class="ue-input-wrap">
+              <input type="number" id="ue_ltv" value="0" min="0" />
+              <span class="ue-unit">₽</span>
+            </div>
+          </div>
+          <div class="ue-field">
+            <label for="ue_notes">Комментарий месяца</label>
+            <textarea id="ue_notes" placeholder="Что повлияло на цифры, что пошло не так, что сработало"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ue-modal-footer">
+        <button type="button" class="btn btn-ghost btn-sm" id="ueInputModalCancel">Закрыть</button>
+        <button type="button" class="btn btn-primary btn-sm" id="ueInputModalSave">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ue-modal-overlay" id="ueSummaryModal">
+    <div class="ue-modal" onclick="event.stopPropagation()">
+      <div class="ue-modal-header">
+        <div>
+          <div class="card-title">Ключевые выводы месяца</div>
+          <div class="ue-subtitle">Смотрите итоговые метрики отдельно от ввода данных.</div>
+        </div>
+        <button type="button" class="ue-modal-close" id="ueSummaryModalClose" aria-label="Закрыть">×</button>
+      </div>
+      <div class="ue-modal-body">
+        <div class="ue-summary-grid">
+          <div class="ue-result-card"><span class="ue-result-label">Прибыль</span><span class="ue-result-value" id="ue_profit">0 ₽</span><span class="ue-result-hint">Факт минус все расходы</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">Маржа</span><span class="ue-result-value" id="ue_margin">0%</span><span class="ue-result-hint">Доля прибыли в выручке</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">CAC</span><span class="ue-result-value" id="ue_cac">0 ₽</span><span class="ue-result-hint">Маркетинг / клиенты</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">LTV / CAC</span><span class="ue-result-value" id="ue_ltv_cac">0x</span><span class="ue-result-hint">Окупаемость канала</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">ROI</span><span class="ue-result-value" id="ue_roi">0%</span><span class="ue-result-hint">Прибыль / все расходы</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">ROMI</span><span class="ue-result-value" id="ue_romi">0%</span><span class="ue-result-hint">Эффект маркетинга</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">План-факт</span><span class="ue-result-value" id="ue_plan_delta">0 ₽</span><span class="ue-result-hint">Отклонение от плана</span></div>
+          <div class="ue-result-card"><span class="ue-result-label">Cash gap</span><span class="ue-result-value" id="ue_cash_gap">0 ₽</span><span class="ue-result-hint">Сколько денег ещё не доехало</span></div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="ue-result-label" style="margin-bottom:8px;">Комментарий месяца</div>
+          <div class="ue-note-preview" id="ueModalNotesPreview">—</div>
+        </div>
+      </div>
+      <div class="ue-modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" id="ueSummaryModalOk">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function tickClock() {
+      var el = document.getElementById('hqClock');
+      if (!el) return;
+      var d = new Date();
+      el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+        d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const PW_KEY='hq_admin_password';
+    function getPw(){return sessionStorage.getItem(PW_KEY)||'';}
+    function getPassword(){return getPw();}
+    function showToast(msg,type){
+      var host=document.getElementById('toast-container');
+      if(!host)return;
+      var el=document.createElement('div');
+      el.className='toast '+(type||'info');
+      el.textContent=msg;
+      host.appendChild(el);
+      setTimeout(function(){el.remove();},3000);
+    }
+    async function api(p,o={}){const authH=(typeof window.hqAuthHeaders==='function')?window.hqAuthHeaders():{'X-Admin-Password':getPw()};const h=Object.assign({},authH,o.headers||{});const r=await fetch(p,Object.assign({},o,{headers:h}));if(r.status===401){if(!/\/hq\/login(\.html)?$/.test(location.pathname))location.href='/hq/login.html?next='+encodeURIComponent(location.pathname);}return r;}
+
+    function switchAnalyticsTab(key) {
+      document.querySelectorAll('.aq-tab').forEach(function (b) { b.classList.toggle('active', b.dataset.aq === key); });
+      document.querySelectorAll('.aq-panel').forEach(function (p) { p.classList.toggle('active', p.id === 'aq-' + key); });
+      if (key === 'overview') loadOverviewMetrics();
+      if (key === 'fin') { loadYandex(); loadBusiness(); }
+      if (key === 'funnel') loadV3Funnel();
+      if (key === 'sources') loadCrmSourcesTable();
+      if (key === 'ue') loadUnitEconomics(document.getElementById('ueMonth').value || currentMonthKey());
+      if (key === 'ai') loadKpiBlock();
+    }
+    document.querySelectorAll('.aq-tab').forEach(function (b) {
+      b.addEventListener('click', function () { switchAnalyticsTab(b.dataset.aq); });
+    });
+
+    let chLine, chPie, chRev, ueChart, chFunnel;
+    let ueState = { month: '', current: null, history: [] };
+
+    const chartText = '#a0a0a0';
+    const gridColor = 'rgba(255,255,255,0.04)';
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: {
+            color: chartText,
+            font: { size: 11 },
+            boxWidth: 12,
+            padding: 8
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#606060', font: { size: 10 }, maxRotation: 0 },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: { color: '#606060', font: { size: 10 } },
+          grid: { color: gridColor }
+        }
+      }
+    };
+
+    function parseYandexSeries(cached){
+      const row=(cached||[]).find(x=>x.metric_name==='yandex_visits_series');
+      if(!row||!row.value) return null;
+      try{ const j=JSON.parse(row.value); return j; }catch(e){return null;}
+    }
+
+    function drawYandexPlaceholders(){
+      const days=30, labels=[], visits=[];
+      for(let i=0;i<days;i++){ labels.push(String(i+1)); visits.push(Math.round(80+Math.random()*60)); }
+      const ctx=document.getElementById('chYaLine').getContext('2d');
+      if(chLine) chLine.destroy();
+      chLine=new Chart(ctx,{
+        type:'line',
+        data:{labels,datasets:[{label:'Визиты (30 дн.)',data:visits,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.1)',fill:true,tension:0.35}]},
+        options:{ ...commonOptions },
+      });
+      const ctx2=document.getElementById('chYaPie').getContext('2d');
+      if(chPie) chPie.destroy();
+      const pieLabels = ['Поиск','Прямые','Соцсети','Другое'];
+      const pieData = [35,28,12,25];
+      const pieColors = ['#7c3aed','#a855f7','#00d4ff','#22c55e'];
+      chPie=new Chart(ctx2,{type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pieColors,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'55%'}});
+      document.getElementById('srcLegend').innerHTML = pieLabels.map((l,i) =>
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;min-width:0;"><span style="width:10px;height:10px;border-radius:2px;flex-shrink:0;background:'+pieColors[i]+'"></span><span class="truncate-text">'+l+' — '+pieData[i]+'%</span></div>').join('');
+    }
+
+    async function loadYandex(){
+      const r=await api('/api/metrics/yandex');
+      const j=await r.json();
+      drawYandexPlaceholders();
+      const data=parseYandexSeries(j.cached);
+      if(data&&data.data){
+        const rows=data.data||[];
+        const labels=rows.map(x=>x.dimensions&&x.dimensions[0]&&x.dimensions[0].name||'?');
+        const vals=rows.map(x=>x.metrics&&x.metrics[0]||0);
+        if(labels.length&&vals.length){
+          const ctx=document.getElementById('chYaLine').getContext('2d');
+          if(chLine) chLine.destroy();
+          chLine=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Визиты',data:vals,borderColor:'#7c3aed',tension:0.3,fill:true,backgroundColor:'rgba(124,58,237,0.1)'}]},options:{...commonOptions}});
+        }
+      }
+    }
+
+    async function loadBusiness(){
+      const revenueResp = await api('/api/analytics/revenue');
+      const revenueJson = revenueResp.ok ? await revenueResp.json() : { series: [] };
+      const rm = revenueJson.series || [];
+      const ctx=document.getElementById('chRev').getContext('2d');
+      if(chRev) chRev.destroy();
+      const grad = ctx.createLinearGradient(0, 200, 0, 0);
+      grad.addColorStop(0, '#7c3aed');
+      grad.addColorStop(1, '#a855f7');
+      chRev=new Chart(ctx,{
+        type:'bar',
+        data:{
+          labels:rm.map(x=>x.month),
+          datasets:[{
+            label:'Выручка, ₽',
+            data:rm.map(x=>Number(x.revenue || 0)),
+            backgroundColor: grad,
+            borderRadius: 6
+          }]
+        },
+        options:{...commonOptions,plugins:{legend:{labels:{color:chartText,font:{size:11},boxWidth:12,padding:8}}}}
+      });
+      if (ueState.current) renderUnitEconomics(ueState.current, ueState.history || []);
+      loadPlTable();
+    }
+
+    async function loadPlTable() {
+      var r = await api('/api/analytics/pl');
+      if (!r.ok) return;
+      var j = await r.json();
+      var tb = document.getElementById('plTbody');
+      if (!tb) return;
+      var rows = j.months || [];
+      tb.innerHTML = rows.length ? rows.map(function (m) {
+        return '<tr><td>' + String(m.month || '') + '</td><td>' + formatMoney(m.revenue) + ' ₽</td><td>' + formatMoney(m.expenses) + ' ₽</td><td>' + formatMoney(m.profit) + ' ₽</td></tr>';
+      }).join('') : '<tr><td colspan="4" style="color:var(--hq-muted);padding:8px;">Нет данных</td></tr>';
+    }
+
+    async function loadV3Funnel() {
+      var r = await api('/api/analytics/funnel');
+      if (!r.ok) return;
+      var j = await r.json();
+      var el = document.getElementById('funnelStats');
+      if (el) {
+        var pct = Math.round((j.conversion_lead_active || 0) * 100);
+        el.innerHTML = '<p>Лиды: <b style="color:var(--hq-text);">' + j.lead + '</b> · Активные: <b style="color:var(--hq-text);">' + j.active + '</b> · Завершено: <b style="color:var(--hq-text);">' + j.done + '</b></p><p>Доля активных среди лид+актив: <b>' + pct + '%</b></p>';
+      }
+      var canvas = document.getElementById('chFunnel');
+      if (!canvas || typeof Chart === 'undefined') return;
+      var ctx = canvas.getContext('2d');
+      if (chFunnel) chFunnel.destroy();
+      chFunnel = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Лид', 'Активный', 'Завершён'],
+          datasets: [{ label: 'Клиенты', data: [j.lead, j.active, j.done], backgroundColor: ['#6b7280', '#22c55e', '#00d4ff'], borderRadius: 6 }]
+        },
+        options: { ...commonOptions, plugins: { legend: { display: false } } }
+      });
+    }
+
+    async function loadCrmSourcesTable() {
+      var r = await api('/api/analytics/sources');
+      if (!r.ok) return;
+      var j = await r.json();
+      var tb = document.getElementById('crmSourcesTbody');
+      if (!tb) return;
+      var rows = j.sources || [];
+      tb.innerHTML = rows.length ? rows.map(function (s) {
+        return '<tr><td>' + String(s.source || '') + '</td><td>' + s.clients + '</td><td>' + formatMoney(s.revenue) + ' ₽</td></tr>';
+      }).join('') : '<tr><td colspan="3" style="color:var(--hq-muted);padding:8px;">Нет данных</td></tr>';
+    }
+
+    async function loadKpiBlock() {
+      var el = document.getElementById('kpiBlock');
+      if (!el) return;
+      var r = await api('/api/analytics/kpi');
+      if (!r.ok) { el.textContent = 'Не удалось загрузить KPI'; return; }
+      var k = await r.json();
+      var lines = [];
+      Object.keys(k).forEach(function (key) {
+        lines.push(key + ': ' + JSON.stringify(k[key]));
+      });
+      el.textContent = lines.join('\n');
+    }
+
+    function formatMoney(n) {
+      return new Intl.NumberFormat('ru-RU').format(Math.round(n));
+    }
+
+    async function loadRevenueBreakdown() {
+      var container = document.getElementById('revenue-breakdown');
+      if (!container) return;
+      try {
+        var r = await api('/api/finance/summary');
+        if (!r.ok) {
+          container.innerHTML = '<span style="color:var(--hq-muted);font-size:13px;">Нет данных</span>';
+          return;
+        }
+        var data = await r.json();
+        var fmt = function (n) { return formatMoney(n || 0); };
+        var total = Number(data.total.received || 0);
+        var agencyPct = total > 0 ? Math.round(Number(data.agency.received || 0) / total * 100) : 0;
+        var studentPct = total > 0 ? Math.round(Number(data.students.received || 0) / total * 100) : 0;
+        var pctShare = Number(data.percent.received || 0);
+        var percentPct = total > 0 ? Math.round(pctShare / total * 100) : 0;
+        if (total <= 0) {
+          agencyPct = studentPct = percentPct = 0;
+        }
+
+        var bottomExpense = '';
+        if (data.expenses.total > 0) {
+          bottomExpense =
+            '<div><div style="font-size:11px;color:#606060;margin-bottom:4px">Расходы</div>' +
+            '<div style="font-size:20px;font-weight:700;color:#ef4444">− ' + fmt(data.expenses.paid) + ' ₽</div></div>' +
+            '<div><div style="font-size:11px;color:#606060;margin-bottom:4px">Чистыми</div>' +
+            '<div style="font-size:20px;font-weight:700;color:#e0e0e0">' + fmt(data.total.net) + ' ₽</div></div>';
+        }
+
+        container.innerHTML =
+          '<div style="margin-bottom:12px">' +
+          '<h3 style="font-size:14px;font-weight:600;color:#a0a0a0;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">' +
+          'Источники дохода</h3>' +
+          '<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:16px">' +
+          '<div style="width:' + agencyPct + '%;background:#3b82f6;transition:width .5s;min-width:' + (agencyPct > 0 ? '4px' : '0') + '"></div>' +
+          '<div style="width:' + studentPct + '%;background:#a855f7;transition:width .5s;min-width:' + (studentPct > 0 ? '4px' : '0') + '"></div>' +
+          '<div style="width:' + percentPct + '%;background:#f59e0b;transition:width .5s;min-width:' + (percentPct > 0 ? '4px' : '0') + '"></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">' +
+          '<div style="background:rgba(59,130,246,.08);border-radius:10px;padding:12px">' +
+          '<div style="font-size:10px;color:#3b82f6;font-weight:600;text-transform:uppercase;margin-bottom:6px">🏢 Агентство</div>' +
+          '<div style="font-size:18px;font-weight:700;color:#e0e0e0">' + fmt(data.agency.received) + ' ₽</div>' +
+          '<div style="font-size:11px;color:#606060">' + agencyPct + '%</div>' +
+          (data.agency.expected > 0
+            ? '<div style="font-size:11px;color:#3b82f6;margin-top:4px">+ ' + fmt(data.agency.expected) + ' ₽</div>'
+            : '') +
+          '</div>' +
+          '<div style="background:rgba(124,58,237,.08);border-radius:10px;padding:12px">' +
+          '<div style="font-size:10px;color:#a855f7;font-weight:600;text-transform:uppercase;margin-bottom:6px">🎓 Ученики</div>' +
+          '<div style="font-size:18px;font-weight:700;color:#e0e0e0">' + fmt(data.students.received) + ' ₽</div>' +
+          '<div style="font-size:11px;color:#606060">' + studentPct + '%</div>' +
+          (data.students.expected > 0
+            ? '<div style="font-size:11px;color:#a855f7;margin-top:4px">+ ' + fmt(data.students.expected) + ' ₽</div>'
+            : '') +
+          '</div>' +
+          '<div style="background:rgba(245,158,11,.08);border-radius:10px;padding:12px">' +
+          '<div style="font-size:10px;color:#f59e0b;font-weight:600;text-transform:uppercase;margin-bottom:6px">📊 % проектов</div>' +
+          '<div style="font-size:18px;font-weight:700;color:#e0e0e0">' + fmt(data.percent.received) + ' ₽</div>' +
+          '<div style="font-size:11px;color:#606060">' + percentPct + '%</div>' +
+          (data.percent.expected > 0
+            ? '<div style="font-size:11px;color:#f59e0b;margin-top:4px">+ ' + fmt(data.percent.expected) + ' ₽</div>'
+            : '') +
+          '</div>' +
+          '</div>' +
+          '</div>' +
+          '<div style="margin-top:8px;padding:14px;background:rgba(255,255,255,.03);border-radius:10px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start">' +
+          '<div><div style="font-size:11px;color:#606060;margin-bottom:4px">Всего получено</div>' +
+          '<div style="font-size:20px;font-weight:700;color:#22c55e">' + fmt(data.total.received) + ' ₽</div></div>' +
+          bottomExpense +
+          '</div>';
+      } catch (e) {
+        console.warn('Revenue breakdown error:', e);
+        container.innerHTML = '';
+      }
+    }
+
+    function monthKeyFromDate(dt) {
+      var year = dt.getFullYear();
+      var month = String(dt.getMonth() + 1).padStart(2, '0');
+      return year + '-' + month;
+    }
+
+    function currentMonthKey() {
+      return monthKeyFromDate(new Date());
+    }
+
+    function shiftMonth(value, delta) {
+      var parts = String(value || currentMonthKey()).split('-');
+      var dt = new Date(Number(parts[0]), Number(parts[1]) - 1 + delta, 1);
+      return monthKeyFromDate(dt);
+    }
+
+    function setValue(id, value) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.value = value == null ? '' : String(value);
+    }
+
+    function setText(id, value) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function metricRows(rows) {
+      return rows.map(function (row) {
+        return '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+      }).join('');
+    }
+
+    function setUeTone(id, kind) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.className = 'ue-result-value' + (kind === 'bad' ? ' bad' : kind === 'warn' ? ' warn' : '');
+    }
+
+    function openUeModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('is-open');
+    }
+
+    function closeUeModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('is-open');
+    }
+
+    async function loadOverviewMetrics() {
+      var tb = document.getElementById('overviewMetricsTbody');
+      if (!tb) {
+        await loadRevenueBreakdown();
+        return;
+      }
+      var r = await api('/api/analytics/overview');
+      if (!r.ok) {
+        tb.innerHTML = '<tr><td colspan="2" style="color:var(--hq-error);padding:12px;">Ошибка загрузки</td></tr>';
+        await loadRevenueBreakdown();
+        return;
+      }
+      var o = await r.json();
+      var rows = [
+        ['Выручка за месяц', formatMoney(o.month_revenue) + ' ₽'],
+        ['Всего клиентов в базе', String(o.total_clients != null ? o.total_clients : '—')],
+        ['Активные клиенты', String(o.active_clients)],
+        ['Лиды', String(o.leads)],
+        ['Средний чек', formatMoney(o.avg_check) + ' ₽'],
+        ['Конверсия (лиды→активные/завершённые)', String(o.conversion) + ' %'],
+        ['Дебиторка (активные)', formatMoney(o.receivable) + ' ₽'],
+        ['Просрочено в канбане', String(o.overdue_tasks)],
+        ['Активные проекты', String(o.active_projects)],
+        ['Просроченные проекты', String(o.overdue_projects)]
+      ];
+      tb.innerHTML = rows.map(function (row) {
+        return '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+      }).join('');
+      await loadRevenueBreakdown();
+    }
+
+    function uePayloadFromForm() {
+      return {
+        revenue_plan: parseFloat(document.getElementById('ue_revenue_plan').value) || 0,
+        revenue_fact: parseFloat(document.getElementById('ue_revenue_fact').value) || 0,
+        cash_received: parseFloat(document.getElementById('ue_cash_received').value) || 0,
+        cash_expected: parseFloat(document.getElementById('ue_cash_expected').value) || 0,
+        expenses_marketing: parseFloat(document.getElementById('ue_expenses_marketing').value) || 0,
+        expenses_operating: parseFloat(document.getElementById('ue_expenses_operating').value) || 0,
+        leads: parseInt(document.getElementById('ue_leads').value || '0', 10) || 0,
+        qualified_leads: parseInt(document.getElementById('ue_qualified_leads').value || '0', 10) || 0,
+        clients: parseInt(document.getElementById('ue_clients').value || '0', 10) || 0,
+        avg_check_override: parseFloat(document.getElementById('ue_avg_check_override').value) || 0,
+        ltv: parseFloat(document.getElementById('ue_ltv').value) || 0,
+        notes: document.getElementById('ue_notes').value || ''
+      };
+    }
+
+    function deriveUnitEconomics(payload) {
+      var revenueFact = Number(payload.revenue_fact || 0);
+      var revenuePlan = Number(payload.revenue_plan || 0);
+      var cashReceived = Number(payload.cash_received || 0);
+      var cashExpected = Number(payload.cash_expected || 0);
+      var expensesMarketing = Number(payload.expenses_marketing || 0);
+      var expensesOperating = Number(payload.expenses_operating || 0);
+      var leads = Number(payload.leads || 0);
+      var qualifiedLeads = Number(payload.qualified_leads || 0);
+      var clients = Number(payload.clients || 0);
+      var avgCheckOverride = Number(payload.avg_check_override || 0);
+      var ltv = Number(payload.ltv || 0);
+      var totalExpenses = expensesMarketing + expensesOperating;
+      var profit = revenueFact - totalExpenses;
+      var margin = revenueFact ? (profit / revenueFact) * 100 : 0;
+      var avgCheck = avgCheckOverride > 0 ? avgCheckOverride : (clients ? revenueFact / clients : 0);
+      var cac = clients ? expensesMarketing / clients : 0;
+      var roi = totalExpenses ? (profit / totalExpenses) * 100 : 0;
+      var romi = expensesMarketing ? ((revenueFact - expensesMarketing) / expensesMarketing) * 100 : 0;
+      var leadToQualified = leads ? (qualifiedLeads / leads) * 100 : 0;
+      var qualifiedToClient = qualifiedLeads ? (clients / qualifiedLeads) * 100 : 0;
+      var leadToClient = leads ? (clients / leads) * 100 : 0;
+      return {
+        total_expenses: totalExpenses,
+        profit: profit,
+        margin: margin,
+        avg_check: avgCheck,
+        cac: cac,
+        ltv: ltv,
+        roi: roi,
+        romi: romi,
+        lead_to_qualified: leadToQualified,
+        qualified_to_client: qualifiedToClient,
+        lead_to_client: leadToClient,
+        plan_fact_delta: revenueFact - revenuePlan,
+        cash_gap: cashExpected - cashReceived
+      };
+    }
+
+    function fillUnitEconomicsForm(data) {
+      setValue('ue_revenue_plan', data.revenue_plan);
+      setValue('ue_revenue_fact', data.revenue_fact);
+      setValue('ue_cash_received', data.cash_received);
+      setValue('ue_cash_expected', data.cash_expected);
+      setValue('ue_expenses_marketing', data.expenses_marketing);
+      setValue('ue_expenses_operating', data.expenses_operating);
+      setValue('ue_leads', data.leads);
+      setValue('ue_qualified_leads', data.qualified_leads);
+      setValue('ue_clients', data.clients);
+      setValue('ue_avg_check_override', data.avg_check_override);
+      setValue('ue_ltv', data.ltv);
+      setValue('ue_notes', data.notes || '');
+    }
+
+    function renderUnitEconomics(current, history) {
+      var derived = deriveUnitEconomics(current);
+      var ltvCac = derived.cac > 0 ? (Number(current.ltv || 0) / derived.cac) : 0;
+      setText('ue_profit', formatMoney(derived.profit) + ' ₽');
+      setText('ue_margin', Math.round(derived.margin) + '%');
+      setText('ue_cac', formatMoney(derived.cac) + ' ₽');
+      setText('ue_ltv_cac', ltvCac ? ltvCac.toFixed(1) + 'x' : '—');
+      setText('ue_roi', Math.round(derived.roi) + '%');
+      setText('ue_romi', Math.round(derived.romi) + '%');
+      setText('ue_plan_delta', (derived.plan_fact_delta >= 0 ? '+' : '') + formatMoney(derived.plan_fact_delta) + ' ₽');
+      setText('ue_cash_gap', formatMoney(derived.cash_gap) + ' ₽');
+
+      setUeTone('ue_profit', derived.profit >= 0 ? 'good' : 'bad');
+      setUeTone('ue_margin', derived.margin >= 30 ? 'good' : derived.margin >= 10 ? 'warn' : 'bad');
+      setUeTone('ue_cac', derived.cac > 0 && ltvCac >= 3 ? 'good' : derived.cac > 0 && ltvCac >= 1.5 ? 'warn' : 'bad');
+      setUeTone('ue_ltv_cac', ltvCac >= 3 ? 'good' : ltvCac >= 1.5 ? 'warn' : 'bad');
+      setUeTone('ue_roi', derived.roi >= 50 ? 'good' : derived.roi >= 10 ? 'warn' : 'bad');
+      setUeTone('ue_romi', derived.romi >= 100 ? 'good' : derived.romi >= 20 ? 'warn' : 'bad');
+      setUeTone('ue_plan_delta', derived.plan_fact_delta >= 0 ? 'good' : 'bad');
+      setUeTone('ue_cash_gap', derived.cash_gap <= 0 ? 'good' : derived.cash_gap <= (current.revenue_fact || 0) * 0.2 ? 'warn' : 'bad');
+      setText('ue_preview_revenue', formatMoney(current.revenue_fact || 0) + ' ₽');
+      setText('ue_preview_expenses', formatMoney(derived.total_expenses) + ' ₽');
+      setText('ue_preview_funnel', String(current.leads || 0) + ' / ' + String(current.clients || 0));
+      setText('ue_preview_notes', (current.notes || '').trim() || '—');
+      setText('ue_preview_profit', formatMoney(derived.profit) + ' ₽');
+      setText('ue_preview_margin', Math.round(derived.margin) + '%');
+      setText('ue_preview_cac', formatMoney(derived.cac) + ' ₽');
+      setText('ue_preview_ltv_cac', ltvCac ? ltvCac.toFixed(1) + 'x' : '—');
+      setText('ueModalNotesPreview', (current.notes || '').trim() || '—');
+
+      var financeRows = [
+        ['План выручки', formatMoney(current.revenue_plan || 0) + ' ₽'],
+        ['Факт выручки', formatMoney(current.revenue_fact || 0) + ' ₽'],
+        ['Общие расходы', formatMoney(derived.total_expenses) + ' ₽'],
+        ['Прибыль', formatMoney(derived.profit) + ' ₽'],
+        ['Маржа', Math.round(derived.margin) + '%'],
+        ['Средний чек', formatMoney(derived.avg_check) + ' ₽']
+      ];
+      var funnelRows = [
+        ['Лиды', String(current.leads || 0)],
+        ['Квал. лиды', String(current.qualified_leads || 0)],
+        ['Клиенты', String(current.clients || 0)],
+        ['Лид → квал.', Math.round(derived.lead_to_qualified) + '%'],
+        ['Квал. → клиент', Math.round(derived.qualified_to_client) + '%'],
+        ['Лид → клиент', Math.round(derived.lead_to_client) + '%']
+      ];
+      document.getElementById('ueFinanceTbody').innerHTML = metricRows(financeRows);
+      document.getElementById('ueFunnelTbody').innerHTML = metricRows(funnelRows);
+
+      var historyRows = history || [];
+      document.getElementById('ueHistoryTbody').innerHTML = historyRows.length ? historyRows.map(function (row) {
+        return '<tr>' +
+          '<td data-label="Месяц"><button type="button" class="ue-link-btn" data-month-open="' + row.month + '">' + row.month + '</button></td>' +
+          '<td data-label="Факт">' + formatMoney(row.revenue_fact || 0) + ' ₽</td>' +
+          '<td data-label="Расход">' + formatMoney(row.total_expenses || 0) + ' ₽</td>' +
+          '<td data-label="Прибыль">' + formatMoney(row.profit || 0) + ' ₽</td>' +
+          '<td data-label="Маржа">' + Math.round(row.margin || 0) + '%</td>' +
+          '<td data-label="CAC">' + formatMoney(row.cac || 0) + ' ₽</td>' +
+          '<td data-label="Клиенты">' + String(row.clients || 0) + '</td>' +
+          '<td data-label="Действие"><button type="button" class="btn btn-ghost btn-sm" data-month-open="' + row.month + '">Открыть</button></td>' +
+          '</tr>';
+      }).join('') : '<tr><td colspan="8" style="color:var(--hq-muted);">Нет данных</td></tr>';
+
+      document.querySelectorAll('[data-month-open]').forEach(function (btn) {
+        btn.onclick = function () {
+          var month = btn.getAttribute('data-month-open');
+          document.getElementById('ueMonth').value = month;
+          loadUnitEconomics(month);
+        };
+      });
+
+      var chartRows = historyRows.slice().reverse();
+      var canvas = document.getElementById('ue-chart');
+      if (canvas && typeof Chart !== 'undefined') {
+        if (ueChart) ueChart.destroy();
+        ueChart = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: chartRows.map(function (row) { return row.month; }),
+            datasets: [
+              { label: 'Выручка', data: chartRows.map(function (row) { return row.revenue_fact || 0; }), borderColor: '#00d4ff', backgroundColor: 'rgba(0,212,255,0.12)', fill: false, tension: 0.25 },
+              { label: 'Прибыль', data: chartRows.map(function (row) { return row.profit || 0; }), borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.12)', fill: false, tension: 0.25 },
+              { label: 'CAC', data: chartRows.map(function (row) { return row.cac || 0; }), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.12)', fill: false, tension: 0.25 }
+            ]
+          },
+          options: { ...commonOptions }
+        });
+      }
+    }
+
+    async function loadUnitEconomics(month) {
+      var targetMonth = month || currentMonthKey();
+      var saveState = document.getElementById('ueSaveState');
+      if (saveState) saveState.textContent = 'Загрузка данных за ' + targetMonth + '...';
+      var r = await api('/api/analytics/unit-economics?month=' + encodeURIComponent(targetMonth));
+      if (!r.ok) {
+        if (saveState) saveState.textContent = 'Не удалось загрузить юнит-экономику';
+        return;
+      }
+      var data = await r.json();
+      ueState = {
+        month: data.month,
+        current: data.current || {},
+        history: data.history || []
+      };
+      document.getElementById('ueMonth').value = ueState.month || targetMonth;
+      fillUnitEconomicsForm(ueState.current);
+      renderUnitEconomics(ueState.current, ueState.history);
+      if (saveState) saveState.textContent = 'Данные загружены. Можно править и сохранять.';
+    }
+
+    async function saveUnitEconomics() {
+      var month = document.getElementById('ueMonth').value || currentMonthKey();
+      var payload = uePayloadFromForm();
+      var saveState = document.getElementById('ueSaveState');
+      if (saveState) saveState.textContent = 'Сохраняю...';
+      var r = await api('/api/analytics/unit-economics/' + encodeURIComponent(month), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!r.ok) {
+        if (saveState) saveState.textContent = 'Ошибка сохранения';
+        showToast('Не удалось сохранить юнит-экономику', 'error');
+        return;
+      }
+      var data = await r.json();
+      ueState = {
+        month: data.month,
+        current: data.current || {},
+        history: data.history || []
+      };
+      fillUnitEconomicsForm(ueState.current);
+      renderUnitEconomics(ueState.current, ueState.history);
+      if (saveState) saveState.textContent = 'Сохранено';
+      closeUeModal('ueInputModal');
+      showToast('Юнит-экономика сохранена', 'success');
+      loadOverviewMetrics();
+      loadBusiness();
+    }
+
+    document.querySelectorAll('#ueInputModal input, #ueInputModal textarea').forEach(function (el) {
+      el.addEventListener('input', function () {
+        var current = Object.assign({}, uePayloadFromForm(), { month: document.getElementById('ueMonth').value || currentMonthKey() });
+        renderUnitEconomics(current, ueState.history || []);
+        var saveState = document.getElementById('ueSaveState');
+        if (saveState) saveState.textContent = 'Есть несохранённые изменения';
+      });
+    });
+
+    document.getElementById('ueMonth').value = currentMonthKey();
+    document.getElementById('ueMonth').addEventListener('change', function () {
+      loadUnitEconomics(document.getElementById('ueMonth').value || currentMonthKey());
+    });
+    document.getElementById('uePrevMonth').onclick = function () {
+      document.getElementById('ueMonth').value = shiftMonth(document.getElementById('ueMonth').value, -1);
+      loadUnitEconomics(document.getElementById('ueMonth').value);
+    };
+    document.getElementById('ueNextMonth').onclick = function () {
+      document.getElementById('ueMonth').value = shiftMonth(document.getElementById('ueMonth').value, 1);
+      loadUnitEconomics(document.getElementById('ueMonth').value);
+    };
+    document.getElementById('ueSaveBtn').onclick = saveUnitEconomics;
+    document.getElementById('ueOpenInputModal').onclick = function () { openUeModal('ueInputModal'); };
+    document.getElementById('ueOpenSummaryModal').onclick = function () { openUeModal('ueSummaryModal'); };
+    document.getElementById('ueInputModalClose').onclick = function () { closeUeModal('ueInputModal'); };
+    document.getElementById('ueInputModalCancel').onclick = function () { closeUeModal('ueInputModal'); };
+    document.getElementById('ueInputModalSave').onclick = saveUnitEconomics;
+    document.getElementById('ueSummaryModalClose').onclick = function () { closeUeModal('ueSummaryModal'); };
+    document.getElementById('ueSummaryModalOk').onclick = function () { closeUeModal('ueSummaryModal'); };
+    document.getElementById('ueInputModal').onclick = function (e) { if (e.target === this) closeUeModal('ueInputModal'); };
+    document.getElementById('ueSummaryModal').onclick = function (e) { if (e.target === this) closeUeModal('ueSummaryModal'); };
+
+    document.getElementById('btnYRefresh').onclick=async()=>{ await api('/api/metrics/refresh',{method:'POST'}); loadYandex(); };
+    document.getElementById('btnYHelp').onclick=()=>document.getElementById('mHelp').classList.add('is-open');
+    document.getElementById('btnHelpClose').onclick=()=>document.getElementById('mHelp').classList.remove('is-open');
+    document.getElementById('mHelp').onclick=function(e){if(e.target===this)this.classList.remove('is-open');};
+    document.getElementById('btnAuth').onclick=async()=>{
+      sessionStorage.setItem(PW_KEY,document.getElementById('pw').value);
+      if((await api('/api/status')).ok){ document.getElementById('mAuth').classList.remove('is-open'); loadOverviewMetrics(); }
+      else sessionStorage.removeItem(PW_KEY);
+    };
+
+    if(!getPw()) document.getElementById('mAuth').classList.add('is-open');
+    else {
+      document.getElementById('mAuth').classList.remove('is-open');
+      loadOverviewMetrics();
+    }
+  </script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+    <script src="/hq/_components.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>

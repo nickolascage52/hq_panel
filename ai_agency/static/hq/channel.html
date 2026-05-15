@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — Канал Telegram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    .hq-channel-page {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 0 !important;
+    }
+    .channel-content {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+      height: calc(100vh - 56px - 24px);
+      max-height: calc(100vh - 56px - 24px);
+      overflow: hidden;
+      padding: 12px 16px;
+      box-sizing: border-box;
+    }
+    @media (max-width: 1100px) {
+      .channel-content {
+        grid-template-columns: 1fr;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+      .post-creator, .posts-queue { max-height: 70vh; }
+    }
+    .post-creator {
+      background: #1a1a1a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 0;
+    }
+    .creator-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .creator-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--hq-text);
+    }
+    .channel-badge {
+      background: rgba(124,58,237,0.15);
+      border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #a855f7;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .ch-form-group label {
+      display: block;
+      font-size: 11px;
+      color: var(--hq-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .ch-form-group textarea.hq-input {
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      min-height: 72px;
+    }
+    .rubric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .rubric-btn {
+      background: #111;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #a0a0a0;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: inherit;
+    }
+    .rubric-btn:hover {
+      border-color: rgba(124,58,237,0.4);
+      color: #fff;
+    }
+    .rubric-btn.active {
+      background: rgba(124,58,237,0.15);
+      border-color: #7c3aed;
+      color: #a855f7;
+    }
+    .rubric-btn .rubric-emoji { font-size: 16px; }
+    .rubric-btn .rubric-name { font-weight: 500; font-size: 12px; }
+    .rubric-btn .rubric-desc { font-size: 10px; color: #606060; }
+    .btn-generate {
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      width: 100%;
+      font-family: inherit;
+    }
+    .btn-generate:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(124,58,237,0.35);
+    }
+    .btn-generate:active { transform: scale(0.98); }
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .post-preview {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .preview-title { font-size: 13px; font-weight: 600; color: var(--hq-text); }
+    .telegram-preview {
+      background: #0d0d0d;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .tg-channel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .tg-channel-avatar {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+    .tg-channel-name { font-size: 13px; font-weight: 600; }
+    .tg-channel-sub { font-size: 11px; color: #606060; }
+    .tg-message {
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e0e0e0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .tg-message-meta {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 12px 8px;
+      font-size: 11px;
+      color: #606060;
+    }
+    .qa-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
+    .qa-badge.good { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .qa-badge.warn { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .qa-badge.bad  { background: rgba(239,68,68,0.15);  color: #ef4444; }
+    .qa-notes {
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      padding: 8px 12px;
+      background: rgba(124,58,237,0.08);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #a0a0a0;
+      border-left: 3px solid #7c3aed;
+    }
+    .char-counter { font-size: 11px; color: #606060; }
+    .char-counter.warn { color: #f59e0b; }
+    .char-counter.bad  { color: #ef4444; }
+    .post-edit-wrap label {
+      display: block;
+      font-size: 11px;
+      color: var(--hq-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .post-edit-wrap textarea.hq-input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .edit-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .post-actions { display: flex; gap: 8px; align-items: stretch; }
+    .btn-publish {
+      flex: 1;
+      background: linear-gradient(135deg, #7c3aed, #a855f7);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-publish:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(124,58,237,0.3);
+    }
+    .btn-publish:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-save {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      color: #a0a0a0;
+      font-size: 13px;
+      padding: 12px 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn-save:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .btn-discard {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.15);
+      border-radius: 8px;
+      color: #ef4444;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn-discard:hover { background: rgba(239,68,68,0.15); }
+    .generating-skeleton {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+      background: #111;
+      border-radius: 10px;
+    }
+    .generating-skeleton.visible { display: flex; }
+    .skeleton-line {
+      height: 14px;
+      background: linear-gradient(90deg, #1a1a1a 25%, #252525 50%, #1a1a1a 75%);
+      background-size: 200% 100%;
+      animation: ch-shimmer 1.5s infinite;
+      border-radius: 6px;
+    }
+    @keyframes ch-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #606060;
+      margin-top: 4px;
+    }
+    .ch-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(124,58,237,0.2);
+      border-top-color: #7c3aed;
+      border-radius: 50%;
+      animation: ch-spin 0.8s linear infinite;
+    }
+    @keyframes ch-spin { to { transform: rotate(360deg); } }
+    .posts-queue {
+      background: #1a1a1a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+    .queue-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .queue-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--hq-text);
+    }
+    .queue-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+    .filter-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      color: #606060;
+      font-size: 12px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .filter-btn.active {
+      background: rgba(124,58,237,0.15);
+      border-color: #7c3aed;
+      color: #a855f7;
+    }
+    .posts-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+    }
+    .post-card {
+      background: #111;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .post-card:hover { border-color: rgba(124,58,237,0.25); }
+    .post-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .post-card-topic {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+      line-height: 1.4;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .post-status-badge {
+      flex-shrink: 0;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    .post-status-badge.draft     { background: rgba(160,160,160,0.15); color: #a0a0a0; }
+    .post-status-badge.approved  { background: rgba(34,197,94,0.15);   color: #22c55e; }
+    .post-status-badge.published { background: rgba(0,212,255,0.15);   color: #00d4ff; }
+    .post-status-badge.rejected  { background: rgba(239,68,68,0.15);   color: #ef4444; }
+    .post-card-preview {
+      font-size: 12px;
+      color: #606060;
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .post-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .post-card-meta {
+      font-size: 11px;
+      color: #606060;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .post-card-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .post-card:hover .post-card-actions { opacity: 1; }
+    .post-card-btn {
+      background: rgba(255,255,255,0.06);
+      border: none;
+      border-radius: 6px;
+      color: #a0a0a0;
+      font-size: 11px;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+    }
+    .post-card-btn.publish:hover { background: rgba(124,58,237,0.2); color: #a855f7; }
+    .post-card-btn.delete:hover  { background: rgba(239,68,68,0.15); color: #ef4444; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status" id="sysStatus"><span class="status-dot"></span><span class="status-label">Проверка…</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Канал Telegram</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-channel-page" data-page="channel">
+      <div class="channel-content">
+        <div class="post-creator">
+          <div class="creator-header">
+            <h2>Создать пост</h2>
+            <span class="channel-badge">@AI_Delivery_Agency</span>
+          </div>
+
+          <div class="ch-form-group">
+            <label for="post-topic">Тема поста</label>
+            <textarea
+              id="post-topic"
+              class="hq-input"
+              rows="3"
+              placeholder="Опишите о чём должен быть пост.
+
+Примеры:
+• Кейс: автоматизировали обработку заявок в розничном магазине
+• Боль: менеджеры тонут в рутине и теряют клиентов
+• Польза: 5 процессов которые можно автоматизировать за неделю"
+            ></textarea>
+          </div>
+
+          <div class="ch-form-group">
+            <label>Рубрика</label>
+            <div class="rubric-grid" id="rubric-grid"></div>
+          </div>
+
+          <button type="button" class="btn-generate" id="generate-btn">
+            <i data-lucide="sparkles"></i>
+            Сгенерировать пост
+          </button>
+
+          <div class="post-preview" id="post-preview">
+            <div class="preview-header">
+              <span class="preview-title">Готовый пост</span>
+              <div class="qa-badge" id="qa-badge">QA: —</div>
+            </div>
+            <div class="telegram-preview">
+              <div class="tg-channel-header">
+                <div class="tg-channel-avatar">AI</div>
+                <div>
+                  <div class="tg-channel-name">AI Delivery Agency</div>
+                  <div class="tg-channel-sub">канал</div>
+                </div>
+              </div>
+              <div class="tg-message" id="tg-message-preview"></div>
+              <div class="tg-message-meta">
+                <span id="post-char-count">0 символов</span>
+                <span>сейчас</span>
+              </div>
+            </div>
+            <div class="qa-notes" id="qa-notes-block" style="display:none">
+              <i data-lucide="info" style="width:14px;height:14px;flex-shrink:0"></i>
+              <span id="qa-notes-text"></span>
+            </div>
+            <div class="post-edit-wrap">
+              <label for="post-text-editor">Редактировать текст</label>
+              <textarea id="post-text-editor" class="hq-input" rows="6"></textarea>
+              <div class="edit-actions">
+                <span id="edit-char-count" class="char-counter">0 / 1200</span>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-regen">
+                  <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
+                  Перегенерировать
+                </button>
+              </div>
+            </div>
+            <div class="post-actions">
+              <button type="button" class="btn-publish" id="publish-btn">
+                <i data-lucide="send"></i>
+                Опубликовать в канал
+              </button>
+              <button type="button" class="btn-save" id="btn-save-draft">
+                <i data-lucide="bookmark"></i>
+                Сохранить черновик
+              </button>
+              <button type="button" class="btn-discard" id="btn-discard" aria-label="Отменить">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="generating-skeleton" id="generating-skeleton">
+            <div class="skeleton-line" style="width:60%"></div>
+            <div class="skeleton-line" style="width:90%"></div>
+            <div class="skeleton-line" style="width:75%"></div>
+            <div class="skeleton-line" style="width:85%"></div>
+            <div class="skeleton-line" style="width:50%"></div>
+            <div class="skeleton-status">
+              <div class="ch-spinner"></div>
+              <span id="skeleton-status-text">TelegramWriter пишет пост...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="posts-queue">
+          <div class="queue-header">
+            <h2>История постов</h2>
+            <div class="queue-filters">
+              <button type="button" class="filter-btn active" data-filter="all">Все</button>
+              <button type="button" class="filter-btn" data-filter="draft">Черновики</button>
+              <button type="button" class="filter-btn" data-filter="published">Опубликованы</button>
+            </div>
+          </div>
+          <div class="posts-list" id="posts-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-host"></div>
+
+  <div class="auth-overlay" id="mAuth">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <input type="password" id="pw" placeholder="Пароль HQ" />
+      <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const PW_KEY = 'hq_admin_password';
+  function getPassword() { return sessionStorage.getItem(PW_KEY) || ''; }
+  function showToast(msg, type) {
+    const host = document.getElementById('toast-container');
+    if (!host) return;
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type || 'info');
+    el.textContent = msg;
+    host.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3500);
+  }
+  function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function formatNoteTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts).slice(0, 16);
+      return d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return String(ts).slice(0, 16); }
+  }
+  async function apiFetch(path, opts) {
+    const authH = (typeof window.hqAuthHeaders === 'function')
+      ? window.hqAuthHeaders()
+      : { 'X-Admin-Password': getPassword() };
+    const h = Object.assign({}, authH, (opts && opts.headers) || {});
+    const r = await fetch(path, Object.assign({}, opts, { headers: h }));
+    if (r.status === 401) {
+      if (!/\/hq\/login(\.html)?$/.test(location.pathname)) {
+        location.href = '/hq/login.html?next=' + encodeURIComponent(location.pathname);
+      }
+    }
+    return r;
+  }
+
+  function tickClock() {
+    const el = document.getElementById('hqClock');
+    if (!el) return;
+    const d = new Date();
+    el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+      d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  const RUBRICS = [
+    { id: 'pain',       emoji: '😤', name: 'Боль',        desc: 'Проблема + решение' },
+    { id: 'case',       emoji: '📊', name: 'Кейс',        desc: 'История с цифрами' },
+    { id: 'practical',  emoji: '🛠', name: 'Практика',    desc: 'Советы и инструкция' },
+    { id: 'expert',     emoji: '🧠', name: 'Экспертиза',  desc: 'Объяснение темы' },
+    { id: 'trend',      emoji: '🚀', name: 'Тренд',       desc: 'Новости и тренды ИИ' },
+    { id: 'provoke',    emoji: '🔥', name: 'Провокация',  desc: 'Спорный тезис' },
+  ];
+  let selectedRubric = 'pain';
+  let currentPostId = null;
+  let allPosts = [];
+  let currentFilter = 'all';
+
+  function renderRubrics() {
+    const grid = document.getElementById('rubric-grid');
+    grid.innerHTML = RUBRICS.map(function (r) {
+      return '<button type="button" class="rubric-btn ' + (r.id === selectedRubric ? 'active' : '') + '" data-rubric="' + r.id + '">' +
+        '<span class="rubric-emoji">' + r.emoji + '</span>' +
+        '<span class="rubric-name">' + escapeHtml(r.name) + '</span>' +
+        '<span class="rubric-desc">' + escapeHtml(r.desc) + '</span></button>';
+    }).join('');
+    grid.querySelectorAll('.rubric-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        selectedRubric = btn.getAttribute('data-rubric');
+        renderRubrics();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      });
+    });
+  }
+
+  function updateCharCount(text) {
+    const t = text == null ? '' : text;
+    const count = t.length;
+    const elPc = document.getElementById('post-char-count');
+    if (elPc) elPc.textContent = count + ' символов';
+    const editCounter = document.getElementById('edit-char-count');
+    if (editCounter) {
+      editCounter.textContent = count + ' / 1200';
+      editCounter.className = 'char-counter' + (count > 1200 ? ' bad' : count > 900 ? ' warn' : '');
+    }
+    const prev = document.getElementById('tg-message-preview');
+    if (prev) prev.textContent = t;
+  }
+
+  async function generatePost() {
+    const topicEl = document.getElementById('post-topic');
+    const topic = topicEl.value.trim();
+    if (!topic) {
+      showToast('Напишите тему поста', 'error');
+      topicEl.focus();
+      return;
+    }
+    const btn = document.getElementById('generate-btn');
+    btn.disabled = true;
+    document.getElementById('post-preview').style.display = 'none';
+    const skel = document.getElementById('generating-skeleton');
+    skel.classList.add('visible');
+
+    const statuses = [
+      'TelegramWriter пишет пост...',
+      'QA редактор проверяет...',
+      'Финальная полировка...'
+    ];
+    let statusIdx = 0;
+    const statusInterval = setInterval(function () {
+      statusIdx = (statusIdx + 1) % statuses.length;
+      const el = document.getElementById('skeleton-status-text');
+      if (el) el.textContent = statuses[statusIdx];
+    }, 2000);
+
+    try {
+      const res = await apiFetch('/api/channel/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topic, rubric: selectedRubric })
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        showToast(data.detail || 'Ошибка генерации поста', 'error');
+        return;
+      }
+      currentPostId = data.post_id;
+      document.getElementById('tg-message-preview').textContent = data.text || '';
+      document.getElementById('post-text-editor').value = data.text || '';
+      updateCharCount(data.text || '');
+
+      const qaBadge = document.getElementById('qa-badge');
+      qaBadge.textContent = 'QA: ' + data.qa_score + '/100';
+      qaBadge.className = 'qa-badge ' + (data.qa_score >= 80 ? 'good' : data.qa_score >= 60 ? 'warn' : 'bad');
+
+      if (data.qa_notes) {
+        document.getElementById('qa-notes-text').textContent = data.qa_notes;
+        document.getElementById('qa-notes-block').style.display = 'flex';
+      } else {
+        document.getElementById('qa-notes-block').style.display = 'none';
+      }
+
+      skel.classList.remove('visible');
+      const prev = document.getElementById('post-preview');
+      prev.style.display = 'flex';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      loadPosts();
+    } catch (e) {
+      showToast('Ошибка генерации поста', 'error');
+      skel.classList.remove('visible');
+    } finally {
+      clearInterval(statusInterval);
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('generate-btn').addEventListener('click', generatePost);
+
+  document.getElementById('post-text-editor').addEventListener('input', function (e) {
+    updateCharCount(e.target.value);
+  });
+
+  async function regenPost() {
+    if (currentPostId) {
+      await apiFetch('/api/channel/posts/' + currentPostId, { method: 'DELETE' });
+      currentPostId = null;
+    }
+    document.getElementById('post-preview').style.display = 'none';
+    generatePost();
+  }
+  document.getElementById('btn-regen').addEventListener('click', regenPost);
+
+  async function publishPost() {
+    if (!currentPostId) return;
+    const editedText = document.getElementById('post-text-editor').value.trim();
+    if (editedText) {
+      await apiFetch('/api/channel/posts/' + currentPostId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editedText })
+      });
+    }
+    const btn = document.getElementById('publish-btn');
+    btn.disabled = true;
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<div class="ch-spinner" style="width:16px;height:16px;border-width:2px"></div> Публикую...';
+    try {
+      const res = await apiFetch('/api/channel/posts/' + currentPostId + '/publish', { method: 'POST' });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        showToast(data.detail || 'Ошибка публикации', 'error');
+        return;
+      }
+      if (data.success) {
+        showToast('Пост опубликован в ' + data.channel, 'success');
+        document.getElementById('post-preview').style.display = 'none';
+        document.getElementById('post-topic').value = '';
+        currentPostId = null;
+        loadPosts();
+      }
+    } catch (e) {
+      showToast('Ошибка: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+  }
+  document.getElementById('publish-btn').addEventListener('click', publishPost);
+
+  async function saveAsDraft() {
+    if (!currentPostId) return;
+    const text = document.getElementById('post-text-editor').value.trim();
+    await apiFetch('/api/channel/posts/' + currentPostId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, status: 'draft' })
+    });
+    showToast('Черновик сохранён', 'success');
+    document.getElementById('post-preview').style.display = 'none';
+    currentPostId = null;
+    loadPosts();
+  }
+  document.getElementById('btn-save-draft').addEventListener('click', saveAsDraft);
+
+  async function discardPost() {
+    if (currentPostId) {
+      await apiFetch('/api/channel/posts/' + currentPostId, { method: 'DELETE' });
+    }
+    document.getElementById('post-preview').style.display = 'none';
+    currentPostId = null;
+  }
+  document.getElementById('btn-discard').addEventListener('click', discardPost);
+
+  async function loadPosts() {
+    try {
+      const res = await apiFetch('/api/channel/posts?limit=30');
+      if (!res.ok) return;
+      allPosts = await res.json();
+      renderPosts();
+    } catch (e) { console.error(e); }
+  }
+
+  function filterPosts(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
+    });
+    renderPosts();
+  }
+  document.querySelectorAll('.filter-btn').forEach(function (b) {
+    b.addEventListener('click', function () { filterPosts(b.getAttribute('data-filter')); });
+  });
+
+  function statusLabel(st) {
+    if (st === 'draft') return 'Черновик';
+    if (st === 'published') return 'Опубликован';
+    if (st === 'rejected') return 'Отклонён';
+    if (st === 'approved') return 'Одобрен';
+    return st || '';
+  }
+
+  function renderPosts() {
+    const list = document.getElementById('posts-list');
+    const filtered = currentFilter === 'all'
+      ? allPosts
+      : allPosts.filter(function (p) { return p.status === currentFilter; });
+
+    if (!filtered.length) {
+      list.innerHTML = '<div style="text-align:center;padding:40px;color:#606060">' +
+        '<i data-lucide="inbox" style="width:40px;height:40px;margin-bottom:12px;display:block;margin-inline:auto"></i>' +
+        '<div style="font-size:13px">Постов пока нет</div></div>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    list.innerHTML = filtered.map(function (post) {
+      const pubBtn = post.status === 'draft'
+        ? '<button type="button" class="post-card-btn publish" data-act="pub" data-pid="' + post.id + '">' +
+          '<i data-lucide="send" style="width:11px;height:11px"></i> Опубликовать</button>' : '';
+      return '<div class="post-card" data-id="' + post.id + '">' +
+        '<div class="post-card-header">' +
+        '<div class="post-card-topic">' + escapeHtml(post.topic) + '</div>' +
+        '<span class="post-status-badge ' + escapeHtml(post.status) + '">' + escapeHtml(statusLabel(post.status)) + '</span></div>' +
+        '<div class="post-card-preview">' + escapeHtml(post.text || '') + '</div>' +
+        '<div class="post-card-footer">' +
+        '<div class="post-card-meta">' +
+        (post.qa_score != null ? '<span style="color:' + (post.qa_score >= 80 ? '#22c55e' : post.qa_score >= 60 ? '#f59e0b' : '#ef4444') + '">QA: ' + post.qa_score + '</span>' : '') +
+        '<span>' + escapeHtml(formatNoteTime(post.created_at)) + '</span>' +
+        (post.published_at ? '<span style="color:#00d4ff">опубликован</span>' : '') +
+        '</div><div class="post-card-actions">' + pubBtn +
+        '<button type="button" class="post-card-btn" data-act="edit" data-pid="' + post.id + '">' +
+        '<i data-lucide="pencil" style="width:11px;height:11px"></i></button>' +
+        '<button type="button" class="post-card-btn delete" data-act="del" data-pid="' + post.id + '">' +
+        '<i data-lucide="trash-2" style="width:11px;height:11px"></i></button>' +
+        '</div></div></div>';
+    }).join('');
+
+    list.querySelectorAll('[data-act="pub"]').forEach(function (b) {
+      b.addEventListener('click', function () { quickPublish(Number(b.getAttribute('data-pid'))); });
+    });
+    list.querySelectorAll('[data-act="edit"]').forEach(function (b) {
+      b.addEventListener('click', function () { loadPostInEditor(Number(b.getAttribute('data-pid'))); });
+    });
+    list.querySelectorAll('[data-act="del"]').forEach(function (b) {
+      b.addEventListener('click', function () { deletePost(Number(b.getAttribute('data-pid'))); });
+    });
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+
+  async function quickPublish(postId) {
+    if (!confirm('Опубликовать этот пост в @AI_Delivery_Agency?')) return;
+    try {
+      const res = await apiFetch('/api/channel/posts/' + postId + '/publish', { method: 'POST' });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        showToast(data.detail || 'Ошибка публикации', 'error');
+        return;
+      }
+      if (data.success) {
+        showToast('Опубликовано в @AI_Delivery_Agency', 'success');
+        loadPosts();
+      }
+    } catch (e) {
+      showToast('Ошибка публикации', 'error');
+    }
+  }
+
+  function loadPostInEditor(postId) {
+    const post = allPosts.find(function (p) { return p.id === postId; });
+    if (!post) return;
+    currentPostId = postId;
+    document.getElementById('post-topic').value = post.topic || '';
+    document.getElementById('post-text-editor').value = post.text || '';
+    document.getElementById('tg-message-preview').textContent = post.text || '';
+    updateCharCount(post.text || '');
+    const prev = document.getElementById('post-preview');
+    prev.style.display = 'flex';
+    const qaBadge = document.getElementById('qa-badge');
+    if (post.qa_score != null) {
+      qaBadge.textContent = 'QA: ' + post.qa_score + '/100';
+      qaBadge.className = 'qa-badge ' + (post.qa_score >= 80 ? 'good' : post.qa_score >= 60 ? 'warn' : 'bad');
+    }
+    if (post.qa_notes) {
+      document.getElementById('qa-notes-text').textContent = post.qa_notes;
+      document.getElementById('qa-notes-block').style.display = 'flex';
+    } else {
+      document.getElementById('qa-notes-block').style.display = 'none';
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    document.querySelector('.post-creator').scrollTop = 0;
+  }
+
+  async function deletePost(postId) {
+    if (!confirm('Удалить пост?')) return;
+    await apiFetch('/api/channel/posts/' + postId, { method: 'DELETE' });
+    allPosts = allPosts.filter(function (p) { return p.id !== postId; });
+    renderPosts();
+    showToast('Пост удалён', 'success');
+  }
+
+  async function checkStatus() {
+    const s = document.getElementById('sysStatus');
+    const lbl = s && s.querySelector('.status-label');
+    try {
+      const r = await apiFetch('/api/status');
+      if (r.ok) {
+        if (lbl) lbl.textContent = 'Онлайн';
+        s.classList.add('online');
+        s.classList.remove('offline');
+      } else {
+        if (lbl) lbl.textContent = 'Ошибка';
+        s.classList.remove('online');
+      }
+    } catch (e) {
+      if (lbl) lbl.textContent = 'Оффлайн';
+      s.classList.add('offline');
+      s.classList.remove('online');
+    }
+  }
+
+  document.getElementById('btnAuth').addEventListener('click', async function () {
+    sessionStorage.setItem(PW_KEY, document.getElementById('pw').value);
+    if ((await apiFetch('/api/status')).ok) {
+      document.getElementById('mAuth').classList.remove('is-open');
+      loadPosts();
+      checkStatus();
+    } else {
+      sessionStorage.removeItem(PW_KEY);
+      showToast('Неверный пароль', 'error');
+    }
+  });
+
+  if (!getPassword()) document.getElementById('mAuth').classList.add('is-open');
+  else {
+    document.getElementById('mAuth').classList.remove('is-open');
+    loadPosts();
+    checkStatus();
+  }
+
+  renderRubrics();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+})();
+  </script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+    <script src="/hq/_components.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>

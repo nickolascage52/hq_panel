@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — Аккаунт-менеджер</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    .hq-acc { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+    .hq-acc-kb { flex-shrink: 0; margin: 0 !important; padding: 12px 16px !important; }
+    .hq-acc-actions { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; min-height: 50px; align-items: center; }
+    .hq-acc-actions .btn { padding: 8px 14px; font-size: 12px; }
+    .hq-acc-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 12px; overflow: hidden; }
+    .hq-acc-col { min-height: 0; display: flex; flex-direction: column; }
+    .hq-acc-col .card { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 !important; padding: 14px 16px !important; }
+    .hq-acc-col .card-title { flex-shrink: 0; }
+    .hq-acc-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+    .report-out { white-space: pre-wrap; word-break: break-word; line-height: 1.5; font-size: 13px; color: var(--hq-text); }
+    .hq-acc-report-tools { display: flex; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+    .item-rem { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; background: #141414; border: 1px solid var(--hq-border); border-left-width: 3px; }
+    .item-rem.pending { border-left-color: var(--hq-accent); }
+    .item-rem.done { border-left-color: var(--hq-muted); opacity: 0.75; }
+    .item-rem .cb { margin-top: 2px; flex-shrink: 0; }
+    table.deadl { width: 100%; font-size: 12px; border-collapse: collapse; }
+    table.deadl th { text-align: left; color: var(--hq-muted); padding: 8px 6px; border-bottom: 1px solid var(--hq-border); position: sticky; top: 0; background: var(--hq-card); z-index: 1; }
+    table.deadl td { padding: 8px 6px; border-bottom: 1px solid var(--hq-border); }
+    table.deadl tr { border-left: 3px solid transparent; }
+    table.deadl tr.dl-over { border-left-color: var(--hq-error); }
+    table.deadl tr.dl-soon { border-left-color: var(--hq-warning); }
+    table.deadl tr.dl-ok { border-left-color: var(--hq-success); }
+    .hidden { display: none !important; }
+    .rep-hist-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--hq-border); font-size: 12px; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Аккаунт-менеджер</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-acc">
+      <div class="card hq-acc-kb">
+        <div class="card-title" style="margin-bottom:8px;">Материалы для агентов</div>
+        <p style="color:var(--hq-text-secondary);font-size:13px;margin:0 0 10px;line-height:1.45;">
+          Контекст и документы загружаются в единую <strong style="color:var(--hq-text);">базу знаний</strong> — оттуда же их читают агенты при RAG.
+        </p>
+        <a href="knowledge.html" class="btn btn-sm" style="display:inline-flex;text-decoration:none;">Открыть базу знаний</a>
+      </div>
+
+      <div class="hq-acc-actions">
+        <button type="button" class="btn" data-cmd="Сформируй ежедневный отчёт по шаблону /report."><i data-lucide="file-text" style="width:16px;height:16px;"></i> Ежедневный отчёт</button>
+        <button type="button" class="btn" data-cmd="/clients — статус всех клиентов кратко."><i data-lucide="users" style="width:16px;height:16px;"></i> Клиенты</button>
+        <button type="button" class="btn" data-cmd="/students — статус всех учеников."><i data-lucide="graduation-cap" style="width:16px;height:16px;"></i> Ученики</button>
+        <button type="button" class="btn" data-cmd="/finance — финансовый срез."><i data-lucide="wallet" style="width:16px;height:16px;"></i> Финансы</button>
+        <button type="button" class="btn" data-cmd="/deadlines — дедлайны на 2 недели."><i data-lucide="calendar" style="width:16px;height:16px;"></i> Дедлайны</button>
+      </div>
+
+      <div class="hq-acc-grid">
+        <div class="hq-acc-col">
+          <div class="card">
+            <div class="card-title">Напоминания</div>
+            <div class="hq-acc-scroll" id="remList"></div>
+          </div>
+        </div>
+        <div class="hq-acc-col">
+          <div class="card">
+            <div class="card-title">Отчёт</div>
+            <div class="hq-acc-report-tools">
+              <button type="button" class="btn btn-ghost btn-sm" id="btnRepRefresh">Обновить</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btnRepCopy">Копировать</button>
+            </div>
+            <div class="hq-acc-scroll report-out report-content" id="out">Выберите действие или дождитесь напоминаний.</div>
+          </div>
+        </div>
+        <div class="hq-acc-col">
+          <div class="card">
+            <div class="card-title">Дедлайны</div>
+            <div class="hq-acc-scroll">
+              <table class="deadl"><thead><tr><th>Тип</th><th>Название</th><th>Срок</th><th>Статус</th></tr></thead><tbody id="dlBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-tight" style="flex-shrink:0;margin:0 !important;padding:12px 16px !important;">
+        <div class="card-title" style="margin-bottom:6px;">История отчётов</div>
+        <div class="hq-acc-scroll" style="max-height:100px;" id="repHist"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-host"></div>
+
+  <div class="auth-overlay" id="mAuth">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <input type="password" id="pw" placeholder="Пароль HQ" />
+      <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <script>
+    function hqToast(msg, type) {
+      var host = document.getElementById('toast-container');
+      if (!host) return;
+      var el = document.createElement('div');
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = msg;
+      host.appendChild(el);
+      setTimeout(function () { el.remove(); }, 3000);
+    }
+    function tickClock() {
+      var el = document.getElementById('hqClock');
+      if (!el) return;
+      var d = new Date();
+      el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+        d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const PW_KEY='hq_admin_password';
+    function getPw(){return sessionStorage.getItem(PW_KEY)||'';}
+    function getPassword(){return getPw();}
+    function showToast(msg,type){hqToast(msg,type);}
+    async function api(p,o={}){const authH=(typeof window.hqAuthHeaders==='function')?window.hqAuthHeaders():{'X-Admin-Password':getPw()};const h=Object.assign({},authH,o.headers||{});const r=await fetch(p,Object.assign({},o,{headers:h}));if(r.status===401){if(!/\/hq\/login(\.html)?$/.test(location.pathname))location.href='/hq/login.html?next='+encodeURIComponent(location.pathname);}return r;}
+
+    let lastReportText = '';
+
+    function setReportLoading() {
+      document.getElementById('out').innerHTML = '<div class="skeleton skeleton-line" style="width:90%;"></div><div class="skeleton skeleton-line" style="width:75%;"></div><div class="skeleton skeleton-line" style="width:85%;"></div><div class="skeleton skeleton-line short"></div><p style="font-size:12px;color:var(--hq-muted);margin-top:12px;"><span class="spinner"></span> Генерация…</p>';
+    }
+
+    async function runAgent(extra, save){
+      setReportLoading();
+      const r=await api('/api/account-manager/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({save:!!save,prompt_extra:extra||null})});
+      const j=await r.json();
+      if(!r.ok){ document.getElementById('out').textContent='Ошибка: '+(j.detail||JSON.stringify(j)); lastReportText=''; return; }
+      lastReportText = j.text||'';
+      document.getElementById('out').textContent=lastReportText;
+      loadReports();
+    }
+
+    document.querySelectorAll('.hq-acc-actions .btn').forEach(b=>b.addEventListener('click',()=>runAgent(b.dataset.cmd,true)));
+    document.getElementById('btnRepCopy').onclick=function(){
+      if(!lastReportText){ hqToast('Нет текста', 'error'); return; }
+      navigator.clipboard.writeText(lastReportText).then(function(){ hqToast('Скопировано', 'success'); });
+    };
+    document.getElementById('btnRepRefresh').onclick=function(){
+      runAgent(null, true);
+    };
+
+    async function loadReminders(){
+      const r=await api('/api/account-manager/today-items');
+      const j=await r.json();
+      const el=document.getElementById('remList');
+      el.innerHTML=(j.items||[]).map(i=>{
+        const ic=i.icon||'•';
+        const rid=i.reminder_id;
+        const pending = !!rid;
+        const rowCls = pending ? 'item-rem pending' : 'item-rem done';
+        const doneBtn=rid?`<input type="checkbox" class="cb" data-rid="${rid}" title="Выполнено" />`:'';
+        return `<div class="${rowCls}">${doneBtn}<div style="flex:1;"><strong style="color:var(--hq-text);">${esc(i.title)}</strong><div style="color:var(--hq-text-secondary);font-size:12px;">${esc(i.detail||'')}</div></div><span style="font-size:18px;line-height:1;">${ic}</span></div>`;
+      }).join('')||'<div class="empty-state"><i data-lucide="inbox"></i><p>Пока ничего нет</p></div>';
+      el.querySelectorAll('.cb').forEach(cb=>cb.addEventListener('change',async function(){
+        if(!this.checked) return;
+        const rid=this.dataset.rid;
+        await api('/api/reminders/'+rid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_sent:1})});
+        loadReminders();
+      }));
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+
+    async function loadDeadlines(){
+      const r=await api('/api/account-manager/deadlines');
+      const j=await r.json();
+      document.getElementById('dlBody').innerHTML=(j.deadlines||[]).map(d=>{
+        const due=(d.deadline||d.due_date||'—');
+        const u=d.urgency||'ok';
+        const trc=u==='overdue'?'dl-over':u==='soon'?'dl-soon':'dl-ok';
+        const name=d.name||d.title||'—';
+        const st=u==='overdue'?'Просрочено':u==='soon'?'Скоро':'Ок';
+        return `<tr class="${trc}"><td>${esc(d.type||'')}</td><td>${esc(name)}</td><td>${esc(String(due))}</td><td>${st}</td></tr>`;
+      }).join('')||'<tr><td colspan="4" style="color:var(--hq-muted);text-align:center;padding:16px;">Нет записей</td></tr>';
+    }
+
+    async function loadReports(){
+      const r=await api('/api/daily-reports?limit=20');
+      const j=await r.json();
+      document.getElementById('repHist').innerHTML=(j.reports||[]).map(x=>{
+        let preview='';
+        try{ const o=JSON.parse(x.content_json||'{}'); preview=(o.text||'').slice(0,100); }catch(e){}
+        return `<div class="rep-hist-item"><button type="button" class="btn btn-ghost btn-sm" data-open="${x.id}">#${x.id}</button> <span style="color:var(--hq-muted)">${esc(x.date)}</span> — ${esc(preview)}…</div>`;
+      }).join('')||'<p style="color:var(--hq-muted);font-size:12px;margin:0;">Пока нет</p>';
+      document.getElementById('repHist').querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',async()=>{
+        const rr=await api('/api/daily-reports/'+b.dataset.open);
+        const row=await rr.json();
+        try{ const o=JSON.parse(row.content_json||'{}'); lastReportText=o.text||''; document.getElementById('out').textContent=lastReportText||row.content_json; }
+        catch(e){ lastReportText=row.content_json||''; document.getElementById('out').textContent=lastReportText; }
+      }));
+    }
+
+    document.getElementById('btnAuth').onclick=async()=>{
+      sessionStorage.setItem(PW_KEY,document.getElementById('pw').value);
+      if((await api('/api/status')).ok){
+        document.getElementById('mAuth').classList.remove('is-open');
+        loadReminders(); loadDeadlines(); loadReports();
+      } else sessionStorage.removeItem(PW_KEY);
+    };
+
+    if(!getPw()) document.getElementById('mAuth').classList.add('is-open');
+    else { document.getElementById('mAuth').classList.remove('is-open'); loadReminders(); loadDeadlines(); loadReports(); }
+  </script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+    <script src="/hq/_components.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>

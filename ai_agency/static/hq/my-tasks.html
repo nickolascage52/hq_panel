@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — Мои задачи</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .mt-page { display:flex; flex-direction:column; gap:14px; padding:14px 18px 18px; flex:1; min-height:0; }
+    .mt-section { background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; padding:14px 16px; }
+    .mt-section h2 { font-size:14px; margin:0 0 10px; color:var(--hq-text); display:flex; justify-content:space-between; }
+    .mt-section h2 .count { color:var(--hq-text-secondary); font-weight:400; }
+    .mt-task {
+      display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; padding:10px 12px;
+      background:rgba(255,255,255,0.02); border-radius:8px; cursor:pointer; margin-bottom:6px;
+    }
+    .mt-task:hover { background:rgba(255,255,255,0.05); }
+    .mt-task-title { font-size:13px; font-weight:500; color:var(--hq-text); }
+    .mt-task-meta { font-size:11px; color:var(--hq-text-secondary); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+    .mt-task-meta .ovrd { color:#f87171; }
+    .mt-task-actions { display:flex; gap:6px; }
+    .mt-empty { text-align:center; color:var(--hq-muted); font-size:12px; padding:16px; }
+    .btn { padding:6px 12px; border-radius:7px; font-size:12px; font-weight:500; cursor:pointer; border:none; font-family:inherit; }
+    .btn-primary { background:var(--hq-cyan); color:#000; }
+    .btn-secondary { background:rgba(255,255,255,0.06); color:var(--hq-text); }
+    .btn-warn { background:rgba(245,158,11,0.15); color:#fbbf24; }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:1000; overflow:auto; }
+    .modal-overlay.visible { display:flex; }
+    .modal-card { background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; width:100%; max-width:560px; padding:24px; display:flex; flex-direction:column; gap:14px; position:relative; }
+    .modal-close { position:absolute; top:12px; right:12px; background:transparent; border:none; cursor:pointer; color:var(--hq-text-secondary); font-size:24px; padding:4px 10px; }
+    .modal-title { font-size:16px; font-weight:600; padding-right:30px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .form-grid .full { grid-column:1/-1; }
+    .form-grid label { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.4px; }
+    .form-grid input, .form-grid textarea, .form-grid select {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+      padding:7px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .form-grid textarea { min-height:50px; resize:vertical; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .checklist-item { display:grid; grid-template-columns:auto 1fr; gap:8px; padding:6px 10px; background:rgba(255,255,255,0.02); border-radius:5px; font-size:13px; }
+    .checklist-item.done { opacity:0.6; text-decoration:line-through; }
+    .section-label { font-size:11px; font-weight:600; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:6px; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Мои задачи</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <span id="userBadge" style="font-size:12px;color:var(--hq-text-secondary)"></span>
+        <button class="btn btn-secondary" id="btnLogout">Выйти</button>
+      </div>
+    </header>
+
+    <div class="hq-content mt-page" id="mtRoot">
+      <div style="text-align:center;padding:40px;color:var(--hq-muted)">Загрузка...</div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-card">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title" id="taskModalTitle">Задача</div>
+      <div id="taskModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const root = document.getElementById('mtRoot');
+      const taskModal = document.getElementById('taskModal');
+      const taskModalBody = document.getElementById('taskModalBody');
+      const taskModalTitle = document.getElementById('taskModalTitle');
+      const userBadge = document.getElementById('userBadge');
+      const user = getCurrentUser();
+      userBadge.textContent = user.name + ' · ' + user.role;
+
+      let tasks = [];
+      let currentTask = null;
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      function isOverdue(t) {
+        return t.deadline && t.deadline < new Date().toISOString().slice(0,10) && t.status !== 'Done' && t.status !== 'Cancelled';
+      }
+
+      function renderTaskRow(t) {
+        return (
+          '<div class="mt-task" data-tid="' + t.id + '">' +
+            '<div>' +
+              '<div class="mt-task-title">' + escapeHtml(t.title) + '</div>' +
+              '<div class="mt-task-meta">' +
+                '<span>📦 ' + escapeHtml(t.project_name || '—') + '</span>' +
+                (t.priority && t.priority !== 'Medium' ? '<span>· ' + t.priority + '</span>' : '') +
+                (t.deadline ? '<span class="' + (isOverdue(t) ? 'ovrd' : '') + '">📅 ' + escapeHtml(t.deadline) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+            '<div class="mt-task-actions">' +
+              (t.status === 'Backlog' || t.status === 'Ready' ?
+                '<button class="btn btn-primary" data-action="start" data-tid="' + t.id + '">▶ В работу</button>' : '') +
+              (t.status === 'In Progress' ?
+                '<button class="btn btn-warn" data-action="review" data-tid="' + t.id + '">→ На проверку</button>' : '') +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function renderSection(title, list) {
+        return (
+          '<div class="mt-section">' +
+            '<h2>' + title + ' <span class="count">' + list.length + '</span></h2>' +
+            (list.length ? list.map(renderTaskRow).join('') : '<div class="mt-empty">Задач в этом разделе нет — они появятся при смене статуса или назначении на вас.</div>') +
+          '</div>'
+        );
+      }
+
+      function render() {
+        const inProgress = tasks.filter(t => t.status === 'In Progress' || t.status === 'Changes Requested');
+        const ready = tasks.filter(t => t.status === 'Backlog' || t.status === 'Ready');
+        const onReview = tasks.filter(t => t.status === 'Review');
+        const done = tasks.filter(t => t.status === 'Done' || t.status === 'Approved');
+
+        root.innerHTML = (
+          renderSection('🔥 В работе', inProgress) +
+          renderSection('📋 К работе', ready) +
+          renderSection('👁 На проверке', onReview) +
+          renderSection('✅ Сделано', done)
+        );
+
+        root.querySelectorAll('.mt-task').forEach(el => {
+          el.addEventListener('click', function (e) {
+            if (e.target.closest('button')) return;
+            openTaskModal(parseInt(el.getAttribute('data-tid'), 10));
+          });
+        });
+        root.querySelectorAll('[data-action]').forEach(btn => {
+          btn.addEventListener('click', async function (e) {
+            e.stopPropagation();
+            const tid = parseInt(btn.getAttribute('data-tid'), 10);
+            const action = btn.getAttribute('data-action');
+            if (action === 'start') {
+              await quickUpdate(tid, { status: 'In Progress' });
+            } else if (action === 'review') {
+              quickInput(
+                'PR URL (можно пропустить)',
+                'https://…',
+                function (pr) {
+                  quickInput(
+                    'Preview URL (можно пропустить)',
+                    'https://…',
+                    async function (preview) {
+                      await quickUpdate(tid, {
+                        status: 'Review',
+                        pull_request_url: pr || '',
+                        preview_url: preview || '',
+                      });
+                    },
+                    '',
+                    true
+                  );
+                },
+                '',
+                true
+              );
+            }
+          });
+        });
+      }
+
+      async function quickUpdate(tid, payload) {
+        try {
+          await apiAuth('/api/delivery/tasks/' + tid, 'PUT', payload);
+          showToast('Обновлено', 'success');
+          await loadTasks();
+          render();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      async function openTaskModal(tid) {
+        try {
+          currentTask = await apiAuth('/api/delivery/tasks/' + tid);
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); return; }
+        renderTaskModal();
+        taskModal.classList.add('visible');
+      }
+
+      function closeTaskModal() {
+        taskModal.classList.remove('visible');
+        currentTask = null;
+      }
+
+      function renderTaskModal() {
+        const t = currentTask;
+        taskModalTitle.textContent = t.title;
+        taskModalBody.innerHTML = (
+          '<div style="font-size:12px;color:var(--hq-text-secondary)">' +
+            '📦 ' + escapeHtml(t.project_name || '—') +
+            (t.stage_name ? ' · 🗂 ' + escapeHtml(t.stage_name) : '') +
+            (t.deadline ? ' · 📅 ' + escapeHtml(t.deadline) : '') +
+          '</div>' +
+          (t.description ? '<div style="font-size:13px;line-height:1.5;color:var(--hq-text)">' + escapeHtml(t.description) + '</div>' : '') +
+          (t.goal ? '<div><div class="section-label">Цель</div><div style="font-size:13px;color:var(--hq-text)">' + escapeHtml(t.goal) + '</div></div>' : '') +
+          '<div class="form-grid">' +
+            '<label>Статус<select id="tf-status">' +
+              ['Backlog','Ready','In Progress','Review','Done','Blocked'].map(s => '<option ' + (s === t.status ? 'selected' : '') + '>' + s + '</option>').join('') +
+            '</select></label>' +
+            '<label class="full">Ветка <input type="text" id="tf-branch_name" value="' + escapeHtml(t.branch_name || '') + '" /></label>' +
+            '<label class="full">PR URL <input type="url" id="tf-pull_request_url" value="' + escapeHtml(t.pull_request_url || '') + '" /></label>' +
+            '<label class="full">Preview URL <input type="url" id="tf-preview_url" value="' + escapeHtml(t.preview_url || '') + '" /></label>' +
+            '<label class="full">Мой комментарий <textarea id="tf-result_comment">' + escapeHtml(t.result_comment || '') + '</textarea></label>' +
+          '</div>' +
+          (t.review_comment ? '<div><div class="section-label">Замечания ревьюера</div><div style="font-size:13px;background:rgba(245,158,11,0.08);padding:10px;border-radius:6px;color:#fbbf24">' + escapeHtml(t.review_comment) + '</div></div>' : '') +
+          '<div class="section-label">Чеклист (' + t.checklist.filter(i => i.is_completed).length + '/' + t.checklist.length + ')</div>' +
+          '<div>' + t.checklist.map(item => (
+            '<div class="checklist-item' + (item.is_completed ? ' done' : '') + '">' +
+              '<input type="checkbox"' + (item.is_completed ? ' checked' : '') + ' data-cl-id="' + item.id + '" />' +
+              '<span>' + escapeHtml(item.title) + '</span>' +
+            '</div>'
+          )).join('') + '</div>' +
+          '<div class="modal-actions">' +
+            '<button class="btn btn-warn" id="btn-to-review">Сдать на проверку</button>' +
+            '<button class="btn btn-primary" id="btn-save">Сохранить</button>' +
+          '</div>'
+        );
+        bindTaskModalHandlers();
+      }
+
+      function bindTaskModalHandlers() {
+        document.querySelectorAll('[data-cl-id]').forEach(cb => {
+          cb.addEventListener('change', async function () {
+            try {
+              await apiAuth('/api/delivery/checklist/' + cb.getAttribute('data-cl-id'), 'PUT', { is_completed: cb.checked });
+              cb.parentElement.classList.toggle('done', cb.checked);
+            } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+          });
+        });
+        document.getElementById('btn-save').addEventListener('click', async function () {
+          const payload = {
+            status: document.getElementById('tf-status').value,
+            branch_name: document.getElementById('tf-branch_name').value,
+            pull_request_url: document.getElementById('tf-pull_request_url').value,
+            preview_url: document.getElementById('tf-preview_url').value,
+            result_comment: document.getElementById('tf-result_comment').value,
+          };
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', payload);
+            showToast('Сохранено', 'success');
+            closeTaskModal();
+            await loadTasks();
+            render();
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+        document.getElementById('btn-to-review').addEventListener('click', async function () {
+          const pr = document.getElementById('tf-pull_request_url').value;
+          const preview = document.getElementById('tf-preview_url').value;
+          const result = document.getElementById('tf-result_comment').value;
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', {
+              status: 'Review',
+              pull_request_url: pr, preview_url: preview, result_comment: result,
+            });
+            showToast('Передано на проверку', 'success');
+            closeTaskModal();
+            await loadTasks();
+            render();
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+      }
+
+      taskModal.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closeTaskModal));
+      taskModal.addEventListener('click', e => { if (e.target === taskModal) closeTaskModal(); });
+
+      async function loadTasks() {
+        const r = await apiAuth('/api/delivery/tasks?my_tasks=true');
+        tasks = (r && r.tasks) || [];
+      }
+
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      tickClock(); setInterval(tickClock, 30000);
+
+      document.getElementById('btnLogout').addEventListener('click', function () {
+        if (confirm('Выйти?')) window.hqLogout();
+      });
+
+      (async function init() {
+        try {
+          await loadTasks();
+          render();
+        } catch (e) {
+          root.innerHTML = '<div style="padding:40px;text-align:center;color:#f87171">Ошибка: ' + e.message + '</div>';
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

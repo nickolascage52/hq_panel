@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — CRM</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    .hq-crm-content { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
+    .crm-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex-shrink: 0; }
+    .crm-search-wrap { position: relative; flex: 1; min-width: 200px; max-width: 320px; }
+    .crm-search-wrap svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--hq-muted); pointer-events: none; }
+    /* Ровный текст: нативный search в WebKit ломает выравнивание и отступы */
+    .crm-search-wrap input[type="search"].hq-input {
+      -webkit-appearance: none;
+      appearance: none;
+      box-sizing: border-box;
+      display: block;
+      line-height: 1.45;
+      min-height: 38px;
+      padding: 9px 12px 9px 36px;
+      margin: 0;
+    }
+    .crm-search-wrap input[type="search"]::-webkit-search-cancel-button,
+    .crm-search-wrap input[type="search"]::-webkit-search-decoration {
+      -webkit-appearance: none;
+      appearance: none;
+      display: none;
+    }
+    .crm-table-host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .crm-stu-host { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .crm-dd-wrap { position: relative; }
+    /* Иначе overflow:hidden на td.clients-table обрезает .crm-dropdown — меню не видно */
+    body.hq-body table.clients-table td.crm-dd-wrap {
+      overflow: visible;
+      max-width: none;
+    }
+    body.hq-body table.clients-table tr:has(.crm-dropdown.open) td.crm-dd-wrap {
+      z-index: 12;
+    }
+    .crm-dd-btn {
+      padding: 6px 10px;
+      min-width: 36px;
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 600;
+      letter-spacing: 0;
+      color: var(--hq-text-secondary);
+    }
+    .crm-dropdown {
+      position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 40;
+      min-width: 160px; background: var(--hq-card); border: 1px solid var(--hq-border); border-radius: var(--hq-radius-btn);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: none; flex-direction: column; padding: 4px;
+    }
+    .crm-dropdown.open { display: flex; }
+    .crm-dropdown button {
+      text-align: left; padding: 8px 12px; border: none; background: transparent; color: var(--hq-text); font-size: 13px; cursor: pointer; border-radius: 6px; font-family: inherit;
+    }
+    .crm-dropdown button:hover { background: rgba(124,58,237,0.12); }
+    .crm-drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 80; display: none;
+    }
+    .crm-drawer-backdrop.open { display: block; background: rgba(0,0,0,0.65); }
+    .crm-drawer {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 90;
+      width: min(960px, 96vw);
+      max-height: min(88vh, 900px);
+      height: auto;
+      background: var(--hq-sidebar-bg);
+      border: 1px solid var(--hq-border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+      transform: translate(-50%, -46%) scale(0.98);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .crm-drawer.open {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .crm-drawer-pane.active { display: block !important; }
+    .crm-drawer-head { padding: 16px 18px; border-bottom: 1px solid var(--hq-border); flex-shrink: 0; }
+    .crm-drawer-tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--hq-border); flex-shrink: 0; }
+    .crm-drawer-tabs button { flex: 1 1 auto; min-width: 72px; padding: 8px 6px; border: none; background: transparent; color: var(--hq-text-secondary); font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 6px; font-family: inherit; }
+    .crm-funnel-col { min-width: 160px; flex: 1; background: rgba(0,0,0,0.22); border-radius: 10px; padding: 10px; max-height: calc(100vh - 220px); overflow-y: auto; }
+    .crm-funnel-card { background: var(--hq-card); border: 1px solid var(--hq-border); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; cursor: pointer; }
+    .crm-drawer-tabs button.active { background: rgba(124,58,237,0.15); color: var(--hq-text); }
+    .crm-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px; }
+    .crm-drawer-pane { display: none; }
+    .crm-drawer-pane.active { display: block; }
+    .pay-green { color: var(--hq-success); font-weight: 600; }
+    .student-quick-actions { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px; }
+    .student-quick-actions .btn { width:100%; }
+    .st-coach-grid { display:grid; grid-template-columns: 1.05fr 0.95fr; gap:12px; align-items:start; }
+    .st-coach-card { background: var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; padding:12px; min-width:0; }
+    .st-coach-project { border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px; margin-bottom:10px; background:rgba(255,255,255,0.02); }
+    .st-coach-project-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:8px; }
+    .st-coach-meta { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+    .st-pill { display:inline-flex; align-items:center; padding:4px 8px; border-radius:999px; background:rgba(255,255,255,0.06); color:var(--hq-text-secondary); font-size:11px; }
+    .st-inline-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .st-log-list { display:flex; flex-direction:column; gap:8px; max-height:320px; overflow:auto; }
+    .st-log-item { border-left:2px solid var(--hq-accent); padding:8px 0 8px 12px; background:rgba(255,255,255,0.02); border-radius:0 8px 8px 0; }
+    .st-log-meta { font-size:11px; color:var(--hq-muted); margin-bottom:4px; }
+    .st-task-list { max-height:42vh; }
+    .st-note-help { font-size:12px; color:var(--hq-text-secondary); margin-top:6px; }
+    .stu-modal-tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--hq-border); }
+    .stu-modal-tabs .stu-tab-btn { padding:6px 12px; font-size:12px; font-weight:600; border-radius:8px; border:1px solid var(--hq-border); background:rgba(255,255,255,0.04); color:var(--hq-text-secondary); cursor:pointer; font-family:inherit; }
+    .stu-modal-tabs .stu-tab-btn.active { border-color:rgba(124,58,237,0.45); color:var(--hq-text); background:rgba(124,58,237,0.12); }
+    .stu-tab-panel { display:none; }
+    .stu-tab-panel.is-active { display:block; }
+    @media (max-width: 900px) {
+      .student-quick-actions, .st-coach-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online" id="sys"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">CRM</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-crm-content">
+      <div class="crm-tabs" role="tablist">
+        <button type="button" class="tab-btn active" data-t="c" role="tab" aria-selected="true" id="tab-clients">Клиенты</button>
+        <button type="button" class="tab-btn" data-t="s" role="tab" aria-selected="false" id="tab-students">Ученики</button>
+      </div>
+
+      <div id="pane-c" class="crm-table-host">
+        <div class="crm-toolbar">
+          <div class="crm-search-wrap">
+            <i data-lucide="search"></i>
+            <input type="search" id="searchC" class="hq-input" placeholder="Поиск…" autocomplete="off" />
+          </div>
+          <select id="filterStatus" class="hq-input" style="width:auto;min-width:160px;">
+            <option value="">Все статусы</option>
+            <option value="lead">Лид</option>
+            <option value="active">Активный</option>
+            <option value="paused">Пауза</option>
+            <option value="done">Завершён</option>
+            <option value="cancelled">Отменён</option>
+          </select>
+          <div style="display:flex;gap:4px;align-items:center;margin-left:auto;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--hq-muted);">Вид:</span>
+            <button type="button" class="btn btn-sm crm-view-btn active" data-crm-view="table">Таблица</button>
+            <button type="button" class="btn btn-sm crm-view-btn" data-crm-view="funnel">Воронка</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btnToggleArchived" onclick="toggleCrmArchived()" style="color:#f59e0b;">📦 Архив</button>
+          <button type="button" class="btn btn-primary" id="btnAddClient">+ Клиент</button>
+        </div>
+        <div class="data-table-wrap scroll-y" id="crmTableWrap">
+          <table class="clients-table" id="tblC"><thead><tr><th class="col-name">Имя</th><th class="col-service">Услуга</th><th class="col-status">Статус</th><th class="col-progress">Прогресс</th><th class="col-payment">Оплата</th><th class="col-next">Следующий шаг</th><th class="col-actions"></th></tr></thead><tbody></tbody></table>
+        </div>
+        <div id="crmFunnelWrap" style="display:none; flex:1; min-height:0; overflow:auto; padding:4px 0;">
+          <div id="crmFunnelCols" style="display:flex; gap:12px; align-items:flex-start;"></div>
+        </div>
+      </div>
+
+      <div id="students-tab" class="crm-stu-host" data-tab="students" style="display:none;">
+        <div class="crm-toolbar">
+          <div class="crm-search-wrap">
+            <i data-lucide="search"></i>
+            <input type="search" id="searchS" class="hq-input" placeholder="Поиск ученика…" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-primary" id="btnAddStudent">+ Ученик</button>
+        </div>
+        <div class="student-grid scroll-y" id="gridS" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;overflow-y:auto;min-height:0;flex:1;align-content:start;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="crm-drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="crm-drawer" id="clientDrawer" aria-hidden="true">
+    <div class="crm-drawer-head">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <div id="drName" style="font-size:16px;font-weight:600;color:var(--hq-text);">—</div>
+          <div id="drCompany" style="font-size:13px;color:var(--hq-text-secondary);margin-top:4px;">—</div>
+          <div id="drStatus" style="margin-top:8px;"></div>
+        </div>
+        <button type="button" class="btn btn-ghost btn-icon" id="drClose" aria-label="Закрыть"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+    <div class="crm-drawer-tabs">
+      <button type="button" class="active" data-pane="p">Проекты</button>
+      <button type="button" data-pane="pay">Оплаты</button>
+      <button type="button" data-pane="stu">Ученики</button>
+      <button type="button" data-pane="t">Задачи</button>
+      <button type="button" data-pane="n">Заметки</button>
+      <button type="button" data-pane="tl">Лента</button>
+    </div>
+    <div class="crm-drawer-body">
+      <div class="crm-drawer-pane active scroll-y" id="drPaneP"></div>
+      <div class="crm-drawer-pane scroll-y" id="drPanePay"></div>
+      <div class="crm-drawer-pane scroll-y" id="drPaneStu"></div>
+      <div class="crm-drawer-pane scroll-y" id="drPaneT"></div>
+      <div class="crm-drawer-pane scroll-y" id="drPaneN"></div>
+      <div class="crm-drawer-pane scroll-y" id="drPaneTl"></div>
+    </div>
+  </aside>
+
+  <div id="toast-container"></div>
+
+  <div class="auth-overlay" id="mAuth">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <input type="password" id="inpPw" placeholder="ADMIN_PASSWORD" />
+      <button type="button" class="btn btn-primary" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <div id="client-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="client-modal-title">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="client-modal-title">Новый клиент</h3>
+        <button type="button" class="modal-close" id="client-modal-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="client-name">Имя *</label>
+            <input type="text" id="client-name" placeholder="Иван Иванов" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="client-company">Компания</label>
+            <input type="text" id="client-company" placeholder="ООО Ромашка" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="client-contact">Контакт (Telegram / телефон)</label>
+          <input type="text" id="client-contact" placeholder="@username или +7..." />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="client-service">Услуга</label>
+            <input type="text" id="client-service" list="dl-service" placeholder="Выберите или введите..." />
+            <datalist id="dl-service">
+              <option value="бот">
+              <option value="автоматизация">
+              <option value="аналитика">
+              <option value="сайт">
+              <option value="аудит">
+              <option value="комплекс">
+              <option value="другое">
+            </datalist>
+          </div>
+          <div class="form-group">
+            <label for="client-status">Статус</label>
+            <input type="text" id="client-status" list="dl-status" placeholder="Выберите или введите..." />
+            <datalist id="dl-status">
+              <option value="lead">
+              <option value="active">
+              <option value="paused">
+              <option value="done">
+              <option value="cancelled">
+            </datalist>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="client-source">Источник</label>
+          <input type="text" id="client-source" list="dl-source" placeholder="Откуда пришёл клиент..." />
+          <datalist id="dl-source">
+            <option value="Органика">
+            <option value="Реферал">
+            <option value="VC.ru">
+            <option value="Telegram">
+            <option value="LinkedIn">
+            <option value="Холодный контакт">
+            <option value="Бизнес-клуб">
+            <option value="Партнёр">
+            <option value="Другое">
+          </datalist>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="client-total">Сумма договора (₽)</label>
+            <input type="number" id="client-total" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="client-paid">Оплачено (₽)</label>
+            <input type="number" id="client-paid" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="client-next-action">Следующий шаг</label>
+          <input type="text" id="client-next-action" placeholder="Позвонить, выставить счёт..." />
+        </div>
+        <div class="form-group">
+          <label for="client-next-date">Дата шага</label>
+          <input type="date" id="client-next-date" />
+        </div>
+        <div class="form-group">
+          <label for="client-notes">Заметки</label>
+          <textarea id="client-notes" placeholder="Дополнительная информация..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="btnSaveClient">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btnCancelClient">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="student-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="student-modal-title">Новый ученик</h3>
+        <button type="button" class="modal-close" id="student-modal-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body" id="student-modal-body">
+        <div class="stu-modal-tabs" id="stu-modal-tabs-row" role="tablist">
+          <button type="button" class="stu-tab-btn active" data-stu-tab="main">Основное</button>
+          <button type="button" class="stu-tab-btn" data-stu-tab="finance" id="stu-tab-finance" hidden>Финансы</button>
+          <button type="button" class="stu-tab-btn" data-stu-tab="projects" id="stu-tab-projects" hidden>Проекты ученика</button>
+          <button type="button" class="stu-tab-btn" data-stu-tab="expenses" id="stu-tab-expenses" hidden>Расходы</button>
+        </div>
+        <div id="stu-panel-main" class="stu-tab-panel is-active">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="student-name">Имя *</label>
+            <input type="text" id="student-name" placeholder="Имя ученика" />
+          </div>
+          <div class="form-group">
+            <label for="student-contact">Контакт</label>
+            <input type="text" id="student-contact" placeholder="@username" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="student-program">Программа обучения</label>
+          <input type="text" id="student-program" placeholder="Автоматизация на Claude API" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="student-source">Источник</label>
+            <input type="text" id="student-source" placeholder="Откуда пришёл" />
+          </div>
+          <div class="form-group">
+            <label for="student-revenue-type">Тип дохода</label>
+            <select id="student-revenue-type">
+              <option value="agency">В выручку агентства</option>
+              <option value="student">Доход с ученика</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="student-sessions">Всего сессий</label>
+            <input type="number" id="student-sessions" placeholder="10" min="1" />
+          </div>
+          <div class="form-group">
+            <label for="student-completed">Пройдено сессий</label>
+            <input type="number" id="student-completed" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="student-next-session">Следующая сессия</label>
+            <input type="date" id="student-next-session" />
+          </div>
+          <div class="form-group">
+            <label for="student-status">Статус</label>
+            <select id="student-status">
+              <option value="active">Активный</option>
+              <option value="paused">Пауза</option>
+              <option value="done">Завершён</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="student-total">Стоимость (₽), классика CRM</label>
+            <input type="number" id="student-total" placeholder="50000" min="0" />
+          </div>
+          <div class="form-group">
+            <label for="student-received">Получено (₽), классика CRM</label>
+            <input type="number" id="student-received" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="student-notes">Прогресс / комментарии</label>
+          <textarea id="student-notes" rows="2" placeholder="Прогресс, кураторство..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="student-extra-notes">Заметки (учёт)</label>
+          <textarea id="student-extra-notes" rows="2" placeholder="Внутренние заметки по ученику"></textarea>
+        </div>
+        </div>
+        <div id="stu-panel-finance" class="stu-tab-panel"></div>
+        <div id="stu-panel-projects" class="stu-tab-panel"></div>
+        <div id="stu-panel-expenses" class="stu-tab-panel"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="btnSaveStudent">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btnCancelStudent">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="st-tasks-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="stTasksTitle">Курирование ученика</h3>
+        <button type="button" class="modal-close" id="st-tasks-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="st-coach-grid">
+          <div class="st-coach-card">
+            <div id="stCoachSummary" style="margin-bottom:12px;"></div>
+            <div class="student-quick-actions">
+              <button type="button" class="btn btn-primary" id="btnStudentQuickCall">+ Созвон</button>
+              <button type="button" class="btn btn-ghost" id="btnStudentQuickProgress">+ Прогресс</button>
+              <button type="button" class="btn btn-ghost" id="btnStudentQuickLog">+ Лог</button>
+            </div>
+            <div class="st-note-help">Быстрые действия обновляют ученика и связанный проект без открытия формы редактирования.</div>
+            <div id="stProjectsWrap" style="margin-top:14px;"></div>
+          </div>
+          <div class="st-coach-card">
+            <div style="font-weight:600;color:var(--hq-text);margin-bottom:8px;">Лента кураторства</div>
+            <div id="stProgressLogs" class="st-log-list"></div>
+          </div>
+        </div>
+        <div class="st-coach-card" style="margin-top:12px;">
+          <div style="font-weight:600;color:var(--hq-text);margin-bottom:8px;">Задания ученика</div>
+          <div id="stTasksList" class="scroll-y st-task-list"></div>
+          <div class="form-group" style="margin-top:8px;">
+            <label for="newStTaskTitle">Новое задание</label>
+            <input type="text" id="newStTaskTitle" placeholder="Заголовок" />
+          </div>
+          <button type="button" class="btn btn-primary" id="btnAddStTask">Добавить</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="btnCloseStTasks">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="payment-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Новая оплата</h3>
+        <button type="button" class="modal-close" id="payment-modal-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pay-amount">Сумма (₽) *</label>
+            <input type="number" id="pay-amount" min="0" step="0.01" />
+          </div>
+          <div class="form-group">
+            <label for="pay-status">Статус</label>
+            <select id="pay-status">
+              <option value="ожидается">ожидается</option>
+              <option value="оплачено">оплачено</option>
+              <option value="просрочено">просрочено</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pay-due">Срок / дата</label>
+            <input type="date" id="pay-due" />
+          </div>
+          <div class="form-group">
+            <label for="pay-paid">Дата оплаты</label>
+            <input type="date" id="pay-paid" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="pay-desc">Описание</label>
+          <input type="text" id="pay-desc" placeholder="Счёт, этап..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="btnSavePayment">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btnCancelPayment">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="project-edit-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3 id="pe-title">Проект</h3>
+        <button type="button" class="modal-close" id="pe-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pe-id" />
+        <input type="hidden" id="pe-cid" />
+        <div class="form-group">
+          <label for="pe-name">Название *</label>
+          <input type="text" id="pe-name" placeholder="Например: Бот поддержки" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-stage">Этап</label>
+            <select id="pe-stage">
+              <option value="discovery">Исследование</option>
+              <option value="design">Проектирование</option>
+              <option value="development">Разработка</option>
+              <option value="testing">Тестирование</option>
+              <option value="launch">Запуск</option>
+              <option value="support">Поддержка</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pe-progress">Прогресс, %</label>
+            <input type="number" id="pe-progress" min="0" max="100" step="1" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-priority">Приоритет</label>
+            <select id="pe-priority">
+              <option value="низкий">Низкий</option>
+              <option value="средний">Средний</option>
+              <option value="высокий">Высокий</option>
+              <option value="критично">Критично</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pe-deadline">Дедлайн</label>
+            <input type="date" id="pe-deadline" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pe-executor">Исполнитель</label>
+            <input type="text" id="pe-executor" placeholder="Имя или команда" />
+          </div>
+          <div class="form-group">
+            <label for="pe-budget">Бюджет, ₽</label>
+            <input type="number" id="pe-budget" min="0" step="1000" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="pe-description">Описание</label>
+          <textarea id="pe-description" rows="2" placeholder="Суть, цели, контекст"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="pe-notes">Заметки</label>
+          <textarea id="pe-notes" rows="2" placeholder="Риски, ссылки, договорённости"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="btnSaveProjectEdit">Сохранить</button>
+        <button type="button" class="btn btn-ghost" id="btnCancelProjectEdit">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="st-report-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-box modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Отчёт</h3>
+        <button type="button" class="modal-close" id="st-report-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body">
+        <pre id="stReportBody" style="margin:0;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:65vh;overflow:auto;font-family:inherit;color:var(--hq-text);"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" id="btnCloseStReport">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATUS_CONFIG = {
+      lead:      { label: 'Лид',       color: '#a0a0a0', bg: 'rgba(160,160,160,0.12)' },
+      active:    { label: 'Активный',  color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
+      paused:    { label: 'Пауза',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)'  },
+      done:      { label: 'Завершён',  color: '#00d4ff', bg: 'rgba(0,212,255,0.12)'   },
+      cancelled: { label: 'Отменён',   color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+    };
+
+    const SERVICE_LABELS = {
+      'бот': 'Telegram бот',
+      'автоматизация': 'Автоматизация',
+      'аналитика': 'Аналитика',
+      'сайт': 'Сайт',
+      'аудит': 'Аудит',
+      'комплекс': 'Комплекс',
+      'другое': 'Другое',
+    };
+
+    const STAGE_LABELS = {
+      discovery: 'Исследование',
+      design: 'Проектирование',
+      development: 'Разработка',
+      testing: 'Тестирование',
+      launch: 'Запуск',
+      support: 'Поддержка',
+    };
+    function stageLabel(s) { return STAGE_LABELS[(s || '').toLowerCase()] || s || '—'; }
+
+    const TASK_STATUS_LABELS = {
+      todo: 'К выполнению',
+      in_progress: 'В работе',
+      done: 'Готово',
+    };
+    function taskStatusLabel(s) { return TASK_STATUS_LABELS[(s || '').toLowerCase()] || s || '—'; }
+
+    function statusBadge(status) {
+      const s = STATUS_CONFIG[status] || STATUS_CONFIG.lead;
+      return '<span class="status-badge ' + escAttr(status || 'lead') + '" style="background:' + s.bg + ';color:' + s.color + ';">' + esc(s.label) + '</span>';
+    }
+
+    function studentStatusBadge(status) {
+      const st = (status || 'active').toLowerCase();
+      const map = { active: 'active', paused: 'paused', done: 'done' };
+      const cls = map[st] || 'active';
+      const labels = { active: 'Активный', paused: 'Пауза', done: 'Завершён' };
+      return '<span class="status-badge ' + cls + '">' + esc(labels[cls] || st) + '</span>';
+    }
+
+    function showToast(msg, type) {
+      const host = document.getElementById('toast-container');
+      if (!host) return;
+      const el = document.createElement('div');
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = msg;
+      host.appendChild(el);
+      setTimeout(function () { el.remove(); }, 3000);
+    }
+
+    const PW_KEY = 'hq_admin_password';
+    function getPassword() { return sessionStorage.getItem(PW_KEY) || ''; }
+    function getPw() { return getPassword(); }
+
+    async function api(path, opt) {
+      opt = opt || {};
+      var authH = (typeof window.hqAuthHeaders === 'function')
+        ? window.hqAuthHeaders()
+        : { 'X-Admin-Password': getPassword() };
+      var h = Object.assign({}, authH, opt.headers || {});
+      var r = await fetch(path, Object.assign({}, opt, { headers: h }));
+      if (r.status === 401) {
+        // Не делаем reload — это создаёт infinite loop когда есть только токен.
+        // Редиректим на login один раз; backend верифицировал и отверг оба варианта.
+        if (!/\/hq\/login(\.html)?$/.test(window.location.pathname)) {
+          window.location.href = '/hq/login.html?next=' + encodeURIComponent(window.location.pathname);
+        }
+      }
+      return r;
+    }
+
+    async function apiJson(path, opts) {
+      var r = await api(path, opts || {});
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        var msg = (j && (j.detail || j.message)) ? (typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail || j)) : ('HTTP ' + r.status);
+        throw new Error(msg);
+      }
+      return j;
+    }
+
+    function closeModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('is-open');
+    }
+
+    function openModal(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.add('is-open');
+    }
+
+    function tickClock() {
+      var el = document.getElementById('hqClock');
+      if (!el) return;
+      var d = new Date();
+      el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+        d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    function escAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+    function money(n) { return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(Number(n) || 0); }
+
+    function formatDateRu(iso) {
+      if (!iso) return '—';
+      var d = String(iso).slice(0, 10);
+      if (!d || d.length < 10) return esc(iso);
+      try {
+        var p = d.split('-');
+        return esc(p[2] + '.' + p[1] + '.' + p[0]);
+      } catch (e) { return esc(iso); }
+    }
+
+    function stageLabel(stage) {
+      var key = String(stage || '').toLowerCase();
+      var found = PROJECT_STAGE_OPTIONS.find(function (item) { return item.value === key; });
+      return found ? found.label : (stage || '—');
+    }
+
+    function relatedStudentProjects(student) {
+      if (!student) return [];
+      return projects.filter(function (p) {
+        return p.client_id === student.client_id;
+      });
+    }
+
+    function defaultStudentProject(student) {
+      var items = relatedStudentProjects(student);
+      return items.find(function (p) { return !p.is_done; }) || items[0] || null;
+    }
+
+    let clients = [], projects = [], editCli = null, editStu = null, stTaskSid = null;
+    let openDropdown = null;
+    let currentDrawerClientId = null;
+    /** Синоним для UI «текущий клиент в drawer» (модалы, кнопки) */
+    let currentClientId = null;
+    let crmViewMode = 'table';
+    const PROJECT_STAGE_OPTIONS = [
+      { value: 'discovery', label: 'Discovery' },
+      { value: 'design', label: 'Design' },
+      { value: 'development', label: 'Development' },
+      { value: 'testing', label: 'Testing' },
+      { value: 'launch', label: 'Launch' },
+      { value: 'support', label: 'Support' },
+      { value: 'done', label: 'Done' }
+    ];
+
+    var crmShowArchived = false;
+    function toggleCrmArchived() {
+      crmShowArchived = !crmShowArchived;
+      var btn = document.getElementById('btnToggleArchived');
+      if (btn) btn.textContent = crmShowArchived ? '← Активные' : '📦 Архив';
+      renderClients();
+    }
+
+    async function loadAllData() {
+      var url = '/api/clients' + (crmShowArchived ? '?include_archived=true' : '');
+      var c = await (await api(url)).json();
+      clients = c.clients || [];
+      if (crmShowArchived) {
+        clients = clients.filter(function (x) { return x.is_archived; });
+      }
+      var p = await (await api('/api/projects')).json();
+      projects = p.projects || [];
+    }
+
+    function mapCrmStatusToStage(rus) {
+      var m = { 'Подготовка': 'discovery', 'В работе': 'development', 'На проверке': 'testing', 'Запущен': 'launch' };
+      return m[rus] || 'discovery';
+    }
+
+    function openCreateProjectModal(clientId) {
+      document.getElementById('create-project-modal') && document.getElementById('create-project-modal').remove();
+      var modal = document.createElement('div');
+      modal.id = 'create-project-modal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '' +
+        '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:24px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">' +
+            '<h3 style="margin:0;font-size:16px;font-weight:600">Новый проект</h3>' +
+            '<button type="button" id="cp-close-x" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:#a0a0a0;width:28px;height:28px;cursor:pointer;font-size:18px;line-height:1">&times;</button>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:12px">' +
+            '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Название *</label>' +
+            '<input id="cp-name" placeholder="Название проекта" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box" /></div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+              '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Тип</label>' +
+              '<select id="cp-type" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px">' +
+                '<option value="Лендинг">Лендинг</option><option value="Сайт">Сайт</option><option value="Telegram-бот">Telegram-бот</option><option value="AI-ассистент">AI-ассистент</option><option value="n8n-автоматизация">n8n-автоматизация</option>' +
+                '<option value="CRM-интеграция">CRM-интеграция</option><option value="Другое" selected>Другое</option></select></div>' +
+              '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Статус</label>' +
+              '<select id="cp-status" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px">' +
+                '<option value="Подготовка" selected>Подготовка</option><option value="В работе">В работе</option><option value="На проверке">На проверке</option><option value="Запущен">Запущен</option></select></div>' +
+              '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+              '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Дедлайн</label>' +
+              '<input id="cp-deadline" type="date" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;box-sizing:border-box" /></div>' +
+              '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Бюджет ₽</label>' +
+              '<input id="cp-budget" type="number" placeholder="0" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;box-sizing:border-box" /></div></div>' +
+            '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">GitHub repo</label>' +
+            '<input id="cp-github" placeholder="https://github.com/..." style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box" /></div>' +
+            '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:5px">Описание</label>' +
+            '<textarea id="cp-desc" placeholder="Краткое описание проекта" rows="3" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:18px">' +
+            '<button type="button" id="cp-save" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s">Создать проект</button>' +
+            '<button type="button" id="cp-cancel" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:11px 18px;cursor:pointer;font-size:14px">Отмена</button>' +
+          '</div></div>';
+
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+
+      function rm() { modal.remove(); }
+      document.getElementById('cp-close-x').addEventListener('click', rm);
+      document.getElementById('cp-cancel').addEventListener('click', rm);
+      document.getElementById('cp-save').addEventListener('click', function () { window.saveNewProject(clientId); });
+      modal.setAttribute('data-cp-cid', String(clientId));
+      setTimeout(function () { var i = document.getElementById('cp-name'); if (i) i.focus(); }, 50);
+    }
+
+    async function saveNewProject(clientId) {
+      var nameEl = document.getElementById('cp-name');
+      var name = nameEl && (nameEl.value || '').trim();
+      if (!name) {
+        if (nameEl) nameEl.style.borderColor = '#ef4444';
+        showToast('Введите название проекта', 'error');
+        return;
+      }
+      var btn = document.getElementById('cp-save');
+      if (btn) { btn.disabled = true; btn.textContent = 'Создаём...'; }
+
+      var typeLbl = document.getElementById('cp-type') ? document.getElementById('cp-type').value : 'Другое';
+      var statusRus = document.getElementById('cp-status') ? document.getElementById('cp-status').value : 'Подготовка';
+      var gh = (document.getElementById('cp-github') && document.getElementById('cp-github').value || '').trim();
+      var notesExtra = [];
+      notesExtra.push('Тип продукта: ' + typeLbl);
+      if (gh) notesExtra.push('GitHub: ' + gh);
+
+      var body = {
+        name: name,
+        client_id: clientId || null,
+        stage: mapCrmStatusToStage(statusRus),
+        description: (document.getElementById('cp-desc') && document.getElementById('cp-desc').value) ? document.getElementById('cp-desc').value : '',
+        deadline: (document.getElementById('cp-deadline') && document.getElementById('cp-deadline').value) || '',
+        budget: parseFloat(document.getElementById('cp-budget') ? document.getElementById('cp-budget').value || '0' : '0') || 0,
+        notes: notesExtra.join('\n'),
+        priority: 'средний'
+      };
+
+      try {
+        var r = await api('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) {
+          var err = {};
+          try { err = await r.json(); } catch (e2) {}
+          throw new Error(err.detail || ('HTTP ' + r.status));
+        }
+        var m = document.getElementById('create-project-modal');
+        if (m) m.remove();
+        showToast('Проект создан', 'success');
+        await loadAllData();
+        if (clientId) await fillDrawer(clientId);
+        renderClients();
+      } catch (e) {
+        showToast(e.message || 'Ошибка создания', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Создать проект'; }
+      }
+    }
+    window.openCreateProjectModal = openCreateProjectModal;
+    window.saveNewProject = saveNewProject;
+
+    /** Модал: дата следующего созвона (для действий «созвон проведён») — передаём callback(dateStr или '') */
+    function openNextSessionDateModal(currentDateIso, title, onSave) {
+      document.getElementById('next-session-date-modal') && document.getElementById('next-session-date-modal').remove();
+      var pre = '';
+      try {
+        pre = currentDateIso ? String(currentDateIso).slice(0, 10) : '';
+      } catch (e) { pre = ''; }
+      var modal = document.createElement('div');
+      modal.id = 'next-session-date-modal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2100;display:flex;align-items:center;justify-content:center;padding:16px';
+      modal.innerHTML = '' +
+        '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:12px;padding:20px;width:320px;max-width:100%">' +
+          '<h4 style="margin:0 0 14px;font-size:15px">' + esc(title || 'Дата следующего созвона') + '</h4>' +
+          '<input id="nsd-date" type="date" value="' + escAttr(pre) + '" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;box-sizing:border-box" />' +
+          '<div style="display:flex;gap:8px;margin-top:14px">' +
+            '<button type="button" id="nsd-save" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:9px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>' +
+            '<button type="button" id="nsd-cancel" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:9px 14px;cursor:pointer">Отмена</button>' +
+          '</div></div>';
+
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+      document.getElementById('nsd-cancel').addEventListener('click', function () { modal.remove(); });
+      document.getElementById('nsd-save').addEventListener('click', async function () {
+        var d = document.getElementById('nsd-date') ? document.getElementById('nsd-date').value : '';
+        modal.remove();
+        try {
+          await onSave(d || '');
+        } catch (err) {
+          showToast(err.message || 'Ошибка', 'error');
+        }
+      });
+      setTimeout(function () { var x = document.getElementById('nsd-date'); if (x) x.focus(); }, 50);
+    }
+
+    function openCuratorNoteModal(onSave) {
+      document.getElementById('curator-note-modal') && document.getElementById('curator-note-modal').remove();
+      var modal = document.createElement('div');
+      modal.id = 'curator-note-modal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2100;display:flex;align-items:center;justify-content:center;padding:16px';
+      modal.innerHTML = '' +
+        '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:12px;padding:20px;width:360px;max-width:100%">' +
+          '<h4 style="margin:0 0 12px;font-size:15px">Заметка куратора</h4>' +
+          '<textarea id="cn-note" rows="3" placeholder="Короткий комментарий" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit"></textarea>' +
+          '<div style="display:flex;gap:8px;margin-top:14px">' +
+            '<button type="button" id="cn-save" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:9px;font-size:13px;font-weight:600;cursor:pointer">Сохранить</button>' +
+            '<button type="button" id="cn-cancel" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:9px 14px;cursor:pointer">Отмена</button>' +
+          '</div></div>';
+
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+      document.body.appendChild(modal);
+      document.getElementById('cn-cancel').addEventListener('click', function () { modal.remove(); });
+      document.getElementById('cn-save').addEventListener('click', async function () {
+        var t = document.getElementById('cn-note') ? document.getElementById('cn-note').value.trim() : '';
+        modal.remove();
+        try {
+          await onSave(t);
+        } catch (err) {
+          showToast(err.message || 'Ошибка', 'error');
+        }
+      });
+    }
+
+    function clientProgress(cid) {
+      var ps = projects.filter(function (x) { return x.client_id === cid && !x.is_done; });
+      if (!ps.length) return 0;
+      return Math.round(ps.reduce(function (a, x) { return a + Number(x.progress || 0); }, 0) / ps.length);
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawerBackdrop').classList.remove('open');
+      document.getElementById('clientDrawer').classList.remove('open');
+    }
+
+    function switchDrawerTab(pane) {
+      document.querySelectorAll('.crm-drawer-tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.pane === pane); });
+      var map = { p: 'drPaneP', pay: 'drPanePay', stu: 'drPaneStu', t: 'drPaneT', n: 'drPaneN', tl: 'drPaneTl' };
+      Object.keys(map).forEach(function (k) {
+        var el = document.getElementById(map[k]);
+        if (el) el.classList.toggle('active', k === pane);
+      });
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    document.querySelectorAll('.crm-drawer-tabs button').forEach(function (b) {
+      b.addEventListener('click', function () { switchDrawerTab(b.dataset.pane); });
+    });
+    document.getElementById('drClose').addEventListener('click', closeDrawer);
+    document.getElementById('drawerBackdrop').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { closeDrawer(); closeAnyDropdown(); }
+    });
+
+    function closeAnyDropdown() {
+      document.querySelectorAll('.crm-dropdown.open').forEach(function (d) { d.classList.remove('open'); });
+      document.querySelectorAll('.crm-dd-btn[aria-expanded="true"]').forEach(function (b) {
+        b.setAttribute('aria-expanded', 'false');
+      });
+      openDropdown = null;
+    }
+    document.addEventListener('click', function () { closeAnyDropdown(); });
+
+    async function fillDrawer(id) {
+      currentDrawerClientId = id;
+      currentClientId = id;
+      var cl = clients.find(function (x) { return x.id === id; });
+      if (!cl) return;
+      document.getElementById('drName').textContent = cl.name || '—';
+      document.getElementById('drCompany').textContent = cl.company || '—';
+      var st = cl.status || 'lead';
+      document.getElementById('drStatus').innerHTML = statusBadge(st);
+
+      var ps = projects.filter(function (p) { return p.client_id === id; });
+      var projectsHtml = '';
+      var allTasksHtml = '<ul style="margin:0;padding-left:1.1rem;color:var(--hq-text-secondary);font-size:13px;">';
+
+      for (var pi = 0; pi < ps.length; pi++) {
+        var p = ps[pi];
+        var tr = await (await api('/api/projects/' + p.id + '/tasks')).json();
+        var tasks = tr.tasks || [];
+        var pr = Math.min(100, Number(p.progress) || 0);
+        projectsHtml += '<div class="card card-tight" style="margin-bottom:10px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+          '<div><strong style="color:var(--hq-text);">' + esc(p.name) + '</strong> · <span style="color:var(--hq-muted);font-size:12px;">' + esc(stageLabel(p.stage)) + '</span></div>' +
+          '<div style="display:flex;gap:4px;">' +
+          '<button type="button" class="btn btn-ghost btn-sm btn-edit-proj" data-pid="' + p.id + '" data-cid="' + id + '" title="Редактировать" style="padding:4px 6px;">✏️</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm btn-del-proj" data-pid="' + p.id + '" data-cid="' + id + '" title="Удалить" style="padding:4px 6px;color:#ef4444;">🗑</button>' +
+          '</div></div>' +
+          '<div class="progress-wrap"><div class="progress-bar" style="width:' + pr + '%"></div></div><ul style="margin:8px 0 0;padding-left:1.1rem;color:var(--hq-text-secondary);font-size:12px;">';
+        projectsHtml += tasks.length ? tasks.map(function (t) {
+          return '<li>' + esc(t.title) + ' — <span style="color:var(--hq-muted);">' + esc(taskStatusLabel(t.status)) + '</span> <button type="button" class="btn btn-ghost btn-sm btn-done-pt" data-tid="' + t.id + '" data-cid="' + id + '" title="Отметить выполненной" style="padding:2px 8px;">✓</button></li>';
+        }).join('') : '<li style="color:var(--hq-muted);">Пока нет задач</li>';
+        projectsHtml += '</ul>' +
+          '<form class="pt-add-form" data-pid="' + p.id + '" data-cid="' + id + '" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
+          '<input type="text" class="hq-input pt-add-input" placeholder="Новая задача" style="flex:1;min-width:140px;padding:6px 10px;font-size:13px;" />' +
+          '<button type="submit" class="btn btn-primary btn-sm">+ Добавить</button>' +
+          '</form></div>';
+
+        tasks.forEach(function (t) {
+          allTasksHtml += '<li><strong>' + esc(p.name) + '</strong>: ' + esc(t.title) + ' — ' + esc(taskStatusLabel(t.status)) + '</li>';
+        });
+      }
+      allTasksHtml += ps.length ? '' : '<li>Нет задач</li>';
+      allTasksHtml += '</ul>';
+
+      projectsHtml += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="btn btn-sm btn-add-proj" data-cid="' + id + '">+ Проект</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm btn-edit-cli2" data-id="' + id + '">Редактировать</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm btn-archive-cli" data-id="' + id + '" style="color:#f59e0b;border-color:rgba(245,158,11,0.25);">В архив</button>' +
+        '</div>';
+
+      var notesHtml = '<p style="color:var(--hq-text);margin:0 0 8px;"><b>Контакты:</b> ' + esc(cl.contact) + '</p><p style="color:var(--hq-text-secondary);font-size:13px;white-space:pre-wrap;">' + esc(cl.notes) + '</p><p style="margin-top:12px;font-size:13px;color:var(--hq-text-secondary);"><b>След. шаг:</b> ' + esc(cl.next_action || '—') + '</p>';
+
+      document.getElementById('drPaneP').innerHTML = projectsHtml || '<div class="empty-state"><i data-lucide="folder-open"></i><p>Пока ничего нет</p></div>';
+      document.getElementById('drPaneT').innerHTML = allTasksHtml;
+      document.getElementById('drPaneN').innerHTML = notesHtml;
+
+      var payJ = await (await api('/api/clients/' + id + '/payments')).json();
+      var pays = payJ.payments || [];
+      var payHtml = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><strong>Оплаты</strong><button type="button" class="btn btn-primary btn-sm" id="btnAddPayDrawer">+ Оплата</button></div>';
+      payHtml += '<table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:4px 0;">Сумма</th><th>Статус</th><th>Дата</th><th></th></tr></thead><tbody>';
+      if (!pays.length) payHtml += '<tr><td colspan="4" style="color:var(--hq-muted);padding:8px 0;">Нет платежей</td></tr>';
+      else pays.forEach(function (p) {
+        var d = (p.paid_date || p.due_date || '').slice(0, 10);
+        payHtml += '<tr><td class="pay-green">' + money(p.amount) + '</td><td>' + esc(p.status || '') + '</td><td>' + esc(d || '—') + '</td><td><button type="button" class="btn btn-ghost btn-sm btn-del-pay" data-pid="' + p.id + '">×</button></td></tr>';
+      });
+      payHtml += '</tbody></table>';
+      document.getElementById('drPanePay').innerHTML = payHtml;
+
+      var stuJ = await (await api('/api/students')).json();
+      var allStu = stuJ.students || [];
+      var linked = allStu.filter(function (s) { return Number(s.client_id) === id; });
+      var free = allStu.filter(function (s) { return !s.client_id; });
+      var stuHtml = '<div style="margin-bottom:10px;font-weight:600;color:var(--hq-text);">Ученики клиента</div>';
+      if (!linked.length) stuHtml += '<p style="color:var(--hq-muted);font-size:13px;">Пока никого не привязано</p>';
+      else linked.forEach(function (s) {
+        stuHtml += '<div class="card card-tight" style="margin-bottom:8px;"><strong style="color:var(--hq-text);">' + esc(s.name) + '</strong><div style="font-size:12px;color:var(--hq-muted);">' + esc(s.program || '') + '</div></div>';
+      });
+      stuHtml += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--hq-border);"><div style="font-size:12px;color:var(--hq-muted);margin-bottom:6px;">+ Привязать ученика</div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+      stuHtml += '<select id="bindStudentSelect" class="hq-input" style="flex:1;min-width:180px;font-size:13px;">';
+      stuHtml += '<option value="">— Выберите ученика —</option>';
+      free.forEach(function (s) {
+        stuHtml += '<option value="' + s.id + '">' + esc(s.name) + '</option>';
+      });
+      stuHtml += '</select><button type="button" class="btn btn-sm" id="btnBindStudent">Сохранить</button></div></div>';
+      document.getElementById('drPaneStu').innerHTML = stuHtml;
+      var btnBind = document.getElementById('btnBindStudent');
+      if (btnBind) {
+        btnBind.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          var sel = document.getElementById('bindStudentSelect');
+          var sid = sel && sel.value;
+          if (!sid) { showToast('Выберите ученика', 'error'); return; }
+          var r = await api('/api/students/' + sid, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client_id: id }) });
+          if (!r.ok) { showToast('Ошибка привязки', 'error'); return; }
+          showToast('Ученик привязан', 'success');
+          await fillDrawer(currentDrawerClientId);
+          renderStudents();
+        });
+      }
+
+      var tlJ = await (await api('/api/timeline/client/' + id)).json();
+      var evs = tlJ.events || [];
+      var tlHtml = '';
+      if (!evs.length) tlHtml = '<p style="color:var(--hq-muted);font-size:13px;">Событий пока нет</p>';
+      else evs.forEach(function (e) {
+        tlHtml += '<div style="border-left:2px solid var(--hq-accent);padding:8px 0 8px 12px;margin-bottom:10px;"><div style="font-size:11px;color:var(--hq-muted);">' + esc(String(e.created_at || '').slice(0, 19)) + ' · ' + esc(e.event_type || '') + '</div><strong style="color:var(--hq-text);">' + esc(e.title || '') + '</strong><div style="font-size:12px;color:var(--hq-text-secondary);margin-top:4px;">' + esc(e.description || '') + '</div></div>';
+      });
+      document.getElementById('drPaneTl').innerHTML = tlHtml;
+
+      var btnPay = document.getElementById('btnAddPayDrawer');
+      if (btnPay) {
+        btnPay.addEventListener('click', function (e) {
+          e.stopPropagation();
+          document.getElementById('pay-amount').value = '';
+          document.getElementById('pay-status').value = 'ожидается';
+          document.getElementById('pay-due').value = '';
+          document.getElementById('pay-paid').value = '';
+          document.getElementById('pay-desc').value = '';
+          openModal('payment-modal');
+        });
+      }
+      document.getElementById('drPanePay').querySelectorAll('.btn-del-pay').forEach(function (b) {
+        b.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          if (!confirm('Удалить платёж?')) return;
+          await api('/api/payments/' + b.dataset.pid, { method: 'DELETE' });
+          await fillDrawer(currentDrawerClientId);
+          renderClients();
+        });
+      });
+
+      document.getElementById('drPaneP').querySelectorAll('.btn-done-pt').forEach(function (b) {
+        b.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          await api('/api/tasks/' + b.dataset.tid, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'done' }) });
+          await fillDrawer(+b.dataset.cid);
+          renderClients();
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.pt-add-form').forEach(function (f) {
+        f.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var inp = f.querySelector('.pt-add-input');
+          var title = (inp && inp.value || '').trim();
+          if (!title) { if (inp) inp.focus(); return; }
+          var btn = f.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          try {
+            var r = await api('/api/projects/' + f.dataset.pid + '/tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: title })
+            });
+            if (!r.ok) {
+              var err = {};
+              try { err = await r.json(); } catch (e2) {}
+              throw new Error(err.detail || ('HTTP ' + r.status));
+            }
+            showToast('Задача добавлена', 'success');
+            await fillDrawer(+f.dataset.cid);
+            renderClients();
+          } catch (err) {
+            showToast('Не удалось создать задачу: ' + (err.message || err), 'error');
+          } finally {
+            if (btn) btn.disabled = false;
+          }
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.btn-add-proj').forEach(function (b) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openCreateProjectModal(+b.dataset.cid);
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.btn-edit-cli2').forEach(function (b) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          closeDrawer();
+          openClient(+b.dataset.id);
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.btn-edit-proj').forEach(function (b) {
+        b.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          var pid = +b.dataset.pid;
+          var cid = +b.dataset.cid;
+          try {
+            var r = await api('/api/projects/' + pid);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            var proj = await r.json();
+            document.getElementById('pe-id').value = pid;
+            document.getElementById('pe-cid').value = cid;
+            document.getElementById('pe-title').textContent = 'Проект: ' + (proj.name || '');
+            document.getElementById('pe-name').value = proj.name || '';
+            document.getElementById('pe-stage').value = proj.stage || 'discovery';
+            document.getElementById('pe-progress').value = Number(proj.progress || 0);
+            document.getElementById('pe-priority').value = proj.priority || 'средний';
+            document.getElementById('pe-deadline').value = (proj.deadline || '').slice(0, 10);
+            document.getElementById('pe-executor').value = proj.executor || '';
+            document.getElementById('pe-budget').value = Number(proj.budget || 0);
+            document.getElementById('pe-description').value = proj.description || '';
+            document.getElementById('pe-notes').value = proj.notes || '';
+            openModal('project-edit-modal');
+          } catch (err) {
+            showToast('Не удалось загрузить проект: ' + (err.message || err), 'error');
+          }
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.btn-del-proj').forEach(function (b) {
+        b.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          if (!confirm('Удалить проект и все его задачи?')) return;
+          var r = await api('/api/projects/' + b.dataset.pid, { method: 'DELETE' });
+          if (!r.ok) { showToast('Ошибка удаления', 'error'); return; }
+          showToast('Проект удалён', 'success');
+          await loadAllData();
+          await fillDrawer(+b.dataset.cid);
+          renderClients();
+        });
+      });
+      document.getElementById('drPaneP').querySelectorAll('.btn-archive-cli').forEach(function (b) {
+        b.addEventListener('click', async function (e) {
+          e.stopPropagation();
+          if (!confirm('Переместить клиента в архив?')) return;
+          var r = await api('/api/clients/' + b.dataset.id + '/archive', { method: 'POST' });
+          if (!r.ok) { showToast('Ошибка архивации', 'error'); return; }
+          showToast('Клиент архивирован', 'success');
+          closeDrawer();
+          await loadAllData();
+          renderClients();
+        });
+      });
+
+      switchDrawerTab('p');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function openDrawer(id) {
+      document.getElementById('drawerBackdrop').classList.add('open');
+      document.getElementById('clientDrawer').classList.add('open');
+      fillDrawer(id);
+    }
+
+    function addMobileClientLabels() {
+      var headers = document.querySelectorAll('#tblC thead th');
+      document.querySelectorAll('#tblC tbody tr.client-row').forEach(function (row) {
+        row.querySelectorAll('td').forEach(function (cell, i) {
+          if (headers[i]) cell.dataset.label = (headers[i].textContent || '').trim() || '—';
+        });
+      });
+    }
+
+    function serviceLabel(key) {
+      return SERVICE_LABELS[key] || (key || '—');
+    }
+
+    async function renderClients() {
+      await loadAllData();
+      var q = (document.getElementById('searchC').value || '').toLowerCase().trim();
+      var fs = document.getElementById('filterStatus').value;
+      var tb = document.querySelector('#tblC tbody');
+      var html = '';
+      for (var i = 0; i < clients.length; i++) {
+        var c = clients[i];
+        if (fs && (c.status || '') !== fs) continue;
+        if (q && !(String(c.name || '').toLowerCase().includes(q) || String(c.company || '').toLowerCase().includes(q) || String(c.service_type || '').toLowerCase().includes(q))) continue;
+        var prog = clientProgress(c.id);
+        var st = c.status || 'lead';
+        var paid = money(c.paid_amount) + ' / ' + money(c.total_amount);
+        var na = c.next_action || '';
+        var svc = serviceLabel(c.service_type);
+        var restoreBtn = crmShowArchived ? '<button type="button" role="menuitem" data-act="restore" data-id="' + c.id + '" style="color:#22c55e;">Восстановить</button>' : '';
+        html += '<tr class="client-row" data-cid="' + c.id + '"><td class="col-name client-name" title="' + escAttr(c.name || '') + '">' + esc(c.name) + '</td><td class="col-service" title="' + escAttr(svc) + '">' + esc(svc) + '</td><td class="col-status">' + statusBadge(st) + '</td><td class="col-progress"><div class="progress-wrap" style="max-width:100px;margin:0;"><div class="progress-bar" style="width:' + prog + '%"></div></div></td><td class="col-payment" title="' + escAttr(paid) + '">' + paid + '</td><td class="col-next" title="' + escAttr(na) + '">' + esc(na) + '</td><td class="crm-dd-wrap col-actions" onclick="event.stopPropagation();"><button type="button" class="btn btn-ghost btn-sm crm-dd-btn" data-dd="' + c.id + '" title="Действия" aria-label="Меню" aria-expanded="false" aria-haspopup="true">⋯</button><div class="crm-dropdown" id="dd-' + c.id + '" role="menu"><button type="button" role="menuitem" data-act="open" data-id="' + c.id + '">Открыть</button>' + restoreBtn + '<button type="button" role="menuitem" data-act="edit" data-id="' + c.id + '">Редактировать</button><button type="button" role="menuitem" data-act="del" data-id="' + c.id + '" style="color:var(--hq-error);">Удалить</button></div></td></tr>';
+      }
+      tb.innerHTML = html || '<tr><td colspan="7" style="color:var(--hq-muted);padding:24px;text-align:center;">Нет клиентов</td></tr>';
+      tb.querySelectorAll('.client-row').forEach(function (tr) {
+        tr.addEventListener('click', function () { openDrawer(+tr.dataset.cid); });
+      });
+      tb.querySelectorAll('.crm-dd-wrap').forEach(function (wrap) {
+        wrap.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      });
+      tb.querySelectorAll('.crm-dd-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          ev.preventDefault();
+          var menu = btn.nextElementSibling && btn.nextElementSibling.classList.contains('crm-dropdown')
+            ? btn.nextElementSibling
+            : document.getElementById('dd-' + btn.dataset.dd);
+          var wasOpen = menu && menu.classList.contains('open');
+          closeAnyDropdown();
+          if (wasOpen) return;
+          if (menu) {
+            menu.classList.add('open');
+            openDropdown = menu;
+            btn.setAttribute('aria-expanded', 'true');
+          }
+        });
+      });
+      tb.querySelectorAll('.crm-dropdown button').forEach(function (b) {
+        b.addEventListener('click', async function (ev) {
+          ev.stopPropagation();
+          var act = b.dataset.act;
+          var cid = +b.dataset.id;
+          closeAnyDropdown();
+          if (act === 'open') openDrawer(cid);
+          else if (act === 'restore') {
+            var r = await api('/api/clients/' + cid + '/restore', { method: 'POST' });
+            if (r.ok) { showToast('Клиент восстановлен', 'success'); renderClients(); }
+            else showToast('Ошибка восстановления', 'error');
+          }
+          else if (act === 'edit') openClient(cid);
+          else if (act === 'del') {
+            if (!confirm('Удалить клиента #' + cid + '?')) return;
+            var r = await api('/api/clients/' + cid, { method: 'DELETE' });
+            if (r.ok) { showToast('Клиент удалён', 'success'); closeDrawer(); renderClients(); }
+            else showToast('Ошибка удаления', 'error');
+          }
+        });
+      });
+      addMobileClientLabels();
+      if (crmViewMode === 'funnel') renderFunnel();
+    }
+
+    function setCrmView(mode) {
+      crmViewMode = mode;
+      document.querySelectorAll('.crm-view-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.crmView === mode); });
+      var tableW = document.getElementById('crmTableWrap');
+      var funW = document.getElementById('crmFunnelWrap');
+      if (tableW) tableW.style.display = mode === 'table' ? '' : 'none';
+      if (funW) {
+        funW.style.display = mode === 'funnel' ? 'flex' : 'none';
+        if (mode === 'funnel') renderFunnel();
+      }
+    }
+
+    function renderFunnel() {
+      var host = document.getElementById('crmFunnelCols');
+      if (!host) return;
+      var cols = [
+        { key: 'lead', label: 'Лид' },
+        { key: 'active', label: 'Активный' },
+        { key: 'paused', label: 'Пауза' },
+        { key: 'done', label: 'Завершён' }
+      ];
+      var q = (document.getElementById('searchC').value || '').toLowerCase().trim();
+      var fs = document.getElementById('filterStatus').value;
+      var filtered = clients.filter(function (c) {
+        if (fs && (c.status || '') !== fs) return false;
+        if (q && !(String(c.name || '').toLowerCase().includes(q) || String(c.company || '').toLowerCase().includes(q) || String(c.service_type || '').toLowerCase().includes(q))) return false;
+        return true;
+      });
+      host.innerHTML = cols.map(function (col) {
+        var list = filtered.filter(function (c) { return (c.status || 'lead') === col.key; });
+        var cards = list.map(function (c) {
+          var paid = money(c.paid_amount) + ' / ' + money(c.total_amount);
+          return '<div class="crm-funnel-card" data-cid="' + c.id + '"><strong>' + esc(c.name) + '</strong><div style="font-size:11px;color:var(--hq-muted);">' + esc(c.company || '') + '</div><div style="margin-top:6px;font-size:12px;">' + paid + '</div></div>';
+        }).join('');
+        return '<div class="crm-funnel-col"><div style="font-weight:700;margin-bottom:10px;font-size:13px;">' + esc(col.label) + ' <span style="opacity:0.7;">(' + list.length + ')</span></div>' + (cards || '<div style="color:var(--hq-muted);font-size:12px;">Пусто</div>') + '</div>';
+      }).join('');
+      host.querySelectorAll('.crm-funnel-card').forEach(function (el) {
+        el.addEventListener('click', function () { openDrawer(+el.dataset.cid); });
+      });
+    }
+
+    document.querySelectorAll('.crm-view-btn').forEach(function (b) {
+      b.addEventListener('click', function () { setCrmView(b.dataset.crmView); });
+    });
+
+    document.getElementById('searchC').addEventListener('input', function () { renderClients(); });
+    document.getElementById('filterStatus').addEventListener('change', function () { renderClients(); });
+
+    function openClient(id) {
+      editCli = id;
+      var c = id ? clients.find(function (x) { return x.id === id; }) : null;
+      document.getElementById('client-modal-title').textContent = id ? 'Редактировать клиента' : 'Новый клиент';
+      document.getElementById('client-name').value = (c && c.name) || '';
+      document.getElementById('client-company').value = (c && c.company) || '';
+      document.getElementById('client-contact').value = (c && c.contact) || '';
+      document.getElementById('client-service').value = (c && c.service_type) || 'бот';
+      document.getElementById('client-status').value = (c && c.status) || 'lead';
+      document.getElementById('client-source').value = (c && c.source) || '';
+      document.getElementById('client-total').value = (c && c.total_amount != null) ? c.total_amount : '';
+      document.getElementById('client-paid').value = (c && c.paid_amount != null) ? c.paid_amount : '';
+      document.getElementById('client-next-action').value = (c && c.next_action) || '';
+      document.getElementById('client-next-date').value = (c && c.next_action_date) ? String(c.next_action_date).slice(0, 10) : '';
+      document.getElementById('client-notes').value = (c && c.notes) || '';
+      openModal('client-modal');
+    }
+
+    document.getElementById('payment-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('payment-modal'); });
+    document.getElementById('payment-modal-close').onclick = function () { closeModal('payment-modal'); };
+    document.getElementById('btnCancelPayment').onclick = function () { closeModal('payment-modal'); };
+    document.getElementById('btnSavePayment').onclick = async function () {
+      var amt = Number(document.getElementById('pay-amount').value);
+      if (!currentDrawerClientId || !amt) { showToast('Укажите сумму', 'error'); return; }
+      var body = {
+        amount: amt,
+        status: document.getElementById('pay-status').value,
+        description: document.getElementById('pay-desc').value || '',
+        due_date: document.getElementById('pay-due').value || '',
+        paid_date: document.getElementById('pay-paid').value || ''
+      };
+      var r = await api('/api/clients/' + currentDrawerClientId + '/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!r.ok) { showToast('Ошибка сохранения', 'error'); return; }
+      closeModal('payment-modal');
+      showToast('Оплата добавлена', 'success');
+      await fillDrawer(currentDrawerClientId);
+      renderClients();
+    };
+
+    document.getElementById('pe-close').onclick = function () { closeModal('project-edit-modal'); };
+    document.getElementById('btnCancelProjectEdit').onclick = function () { closeModal('project-edit-modal'); };
+    document.getElementById('project-edit-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('project-edit-modal'); });
+    document.getElementById('btnSaveProjectEdit').onclick = async function () {
+      var pid = +document.getElementById('pe-id').value;
+      var cid = +document.getElementById('pe-cid').value;
+      var name = (document.getElementById('pe-name').value || '').trim();
+      if (!pid || !name) { showToast('Укажите название проекта', 'error'); return; }
+      var body = {
+        name: name,
+        stage: document.getElementById('pe-stage').value,
+        progress: Math.min(100, Math.max(0, Number(document.getElementById('pe-progress').value) || 0)),
+        priority: document.getElementById('pe-priority').value,
+        deadline: document.getElementById('pe-deadline').value || null,
+        executor: document.getElementById('pe-executor').value || '',
+        budget: Number(document.getElementById('pe-budget').value) || 0,
+        description: document.getElementById('pe-description').value || '',
+        notes: document.getElementById('pe-notes').value || ''
+      };
+      var btn = this;
+      btn.disabled = true;
+      try {
+        var r = await api('/api/projects/' + pid, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) {
+          var err = {};
+          try { err = await r.json(); } catch (e) {}
+          throw new Error(err.detail || ('HTTP ' + r.status));
+        }
+        closeModal('project-edit-modal');
+        showToast('Проект обновлён', 'success');
+        await loadAllData();
+        if (cid) await fillDrawer(cid);
+        renderClients();
+      } catch (err) {
+        showToast('Ошибка сохранения: ' + (err.message || err), 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    document.getElementById('btnAddClient').onclick = function () { openClient(null); };
+    document.getElementById('client-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('client-modal'); });
+    document.getElementById('client-modal-close').onclick = function () { closeModal('client-modal'); };
+    document.getElementById('btnCancelClient').onclick = function () { closeModal('client-modal'); };
+    document.getElementById('btnSaveClient').onclick = async function () {
+      var body = {
+        name: document.getElementById('client-name').value.trim(),
+        company: document.getElementById('client-company').value || null,
+        contact: document.getElementById('client-contact').value || null,
+        service_type: document.getElementById('client-service').value,
+        status: document.getElementById('client-status').value,
+        source: document.getElementById('client-source').value || '',
+        total_amount: Number(document.getElementById('client-total').value) || 0,
+        paid_amount: Number(document.getElementById('client-paid').value) || 0,
+        next_action: document.getElementById('client-next-action').value || null,
+        next_action_date: document.getElementById('client-next-date').value || null,
+        notes: document.getElementById('client-notes').value || null
+      };
+      if (!body.name) { showToast('Укажите имя', 'error'); return; }
+      if (editCli) await api('/api/clients/' + editCli, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      else await api('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      closeModal('client-modal');
+      renderClients();
+      showToast('Сохранено', 'success');
+    };
+
+    async function setStudentStatus(sid, st) {
+      var r = await api('/api/students/' + sid, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: st }) });
+      if (!r.ok) { showToast('Не удалось сменить статус', 'error'); return; }
+      showToast('Статус обновлён', 'success');
+      renderStudents();
+    }
+
+    async function renderStudents() {
+      await loadAllData();
+      var j = await (await api('/api/students')).json();
+      var list = j.students || [];
+      var q = (document.getElementById('searchS').value || '').toLowerCase().trim();
+      var filtered = q ? list.filter(function (s) {
+        return String(s.name || '').toLowerCase().includes(q) || String(s.program || '').toLowerCase().includes(q);
+      }) : list;
+      document.getElementById('gridS').innerHTML = filtered.map(function (s) {
+        var tot = +s.total_sessions || 0, done = +s.completed_sessions || 0;
+        var pct = tot ? Math.round(done / tot * 100) : 0;
+        var ini = (s.name || '?').split(/\s+/).map(function (x) { return x[0]; }).join('').slice(0, 2).toUpperCase();
+        var nextLine = s.next_session_date ? '📅 Следующая сессия: ' + formatDateRu(s.next_session_date) : '📅 Следующая сессия: —';
+        var curSt = (s.status || 'active').toLowerCase();
+        var chips = ['active', 'paused', 'done'].map(function (st) {
+          var lab = st === 'active' ? 'Актив' : st === 'paused' ? 'Пауза' : 'Завершён';
+          var hi = curSt === st ? 'border:1px solid rgba(124,58,237,0.65);color:var(--hq-text);' : '';
+          return '<button type="button" class="btn btn-ghost btn-sm st-chip" data-sid="' + s.id + '" data-st="' + st + '" style="padding:4px 10px;font-size:11px;' + hi + '">' + lab + '</button>';
+        }).join('');
+        var fxTotal = (+s.student_total || 0) || (+s.payment_total || 0);
+        var fxPaid = (+s.student_paid || 0) || (+s.payment_received || 0);
+        var finRow = fxTotal > 0 ? ('<div style="display:flex;gap:8px;margin-top:8px;font-size:11px;flex-wrap:wrap;"><span style="background:rgba(34,197,94,.1);color:#22c55e;padding:2px 8px;border-radius:10px;">✓ ' + new Intl.NumberFormat('ru-RU').format(Math.round(fxPaid)) + ' ₽</span>' + ((fxTotal - fxPaid) > 0 ? '<span style="background:rgba(124,58,237,.1);color:#a855f7;padding:2px 8px;border-radius:10px;">⏳ ' + new Intl.NumberFormat('ru-RU').format(Math.round(fxTotal - fxPaid)) + ' ₽</span>' : '') + '<span style="background:rgba(255,255,255,.06);color:#606060;padding:2px 8px;border-radius:10px;">' + ((String(s.revenue_type || 'agency') === 'agency') ? '🏢 Агентство' : '👤 Ученик') + '</span></div>') : '';
+        return '<div class="student-card" data-sid="' + s.id + '"><div class="student-card-top"><div class="student-avatar">' + esc(ini) + '</div><div style="min-width:0;flex:1;"><div class="student-name truncate-text">' + esc(s.name) + '</div><div class="student-program truncate-text">' + esc(s.program || 'Программа') + '</div></div>' + studentStatusBadge(s.status) + '</div><div class="student-progress"><div class="progress-label"><span>Сессии</span><span>' + done + ' / ' + tot + '</span></div><div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div><div class="student-payment"><div class="payment-item"><span>Оплачено</span><span class="payment-received">' + money(s.payment_received) + '</span></div><div class="payment-item"><span>Итого</span><span>' + money(s.payment_total) + '</span></div></div>' + finRow + '<div class="student-next">' + nextLine + '</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">' + chips + '</div><div class="student-actions"><button type="button" data-call="' + s.id + '">+ Созвон</button><button type="button" data-progress="' + s.id + '">+ Прогресс</button><button type="button" data-tasks="' + s.id + '">Курирование</button><button type="button" data-report="' + s.id + '">Отчёт</button><button type="button" data-edit="' + s.id + '">Изменить</button></div></div>';
+      }).join('') || '<div class="empty-state" style="grid-column:1/-1;"><i data-lucide="users"></i><p>Пока ничего нет</p></div>';
+      document.getElementById('gridS').querySelectorAll('.st-chip').forEach(function (b) {
+        b.onclick = function (ev) { ev.stopPropagation(); setStudentStatus(+b.dataset.sid, b.dataset.st); };
+      });
+      document.getElementById('gridS').querySelectorAll('[data-edit]').forEach(function (b) { b.onclick = function () { openStudent(+b.dataset.edit); }; });
+      document.getElementById('gridS').querySelectorAll('[data-tasks]').forEach(function (b) { b.onclick = function () { openStTasks(+b.dataset.tasks); }; });
+      document.getElementById('gridS').querySelectorAll('[data-call]').forEach(function (b) {
+        b.onclick = function () { quickStudentActionFromCard(+b.dataset.call, 'session_completed'); };
+      });
+      document.getElementById('gridS').querySelectorAll('[data-progress]').forEach(function (b) {
+        b.onclick = function () { quickStudentActionFromCard(+b.dataset.progress, 'progress_plus'); };
+      });
+      document.getElementById('gridS').querySelectorAll('[data-report]').forEach(function (b) {
+        b.onclick = async function () {
+          var r = await api('/api/agents/account_manager/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Краткий отчёт по ученику ID ' + b.dataset.report + ' из БД.', max_tokens: 4000 }) });
+          var o = await r.json();
+          var txt = r.ok ? (o.text || '') : ('Ошибка: ' + (o.detail || JSON.stringify(o)));
+          document.getElementById('stReportBody').textContent = txt;
+          openModal('st-report-modal');
+        };
+      });
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    document.getElementById('searchS').addEventListener('input', function () { renderStudents(); });
+
+    function switchStudentModalTab(which) {
+      document.querySelectorAll('#stu-modal-tabs-row .stu-tab-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-stu-tab') === which);
+      });
+      ['main', 'finance', 'projects', 'expenses'].forEach(function (p) {
+        var el = document.getElementById('stu-panel-' + p);
+        if (el) el.classList.toggle('is-active', p === which);
+      });
+      if (editStu) {
+        if (which === 'finance') loadStudentFinancePanel(editStu);
+        if (which === 'projects') refreshStudentProjectsPanel(editStu);
+        if (which === 'expenses') refreshStudentExpensesPanel(editStu);
+      }
+    }
+
+    document.getElementById('stu-modal-tabs-row').addEventListener('click', function (e) {
+      var btn = e.target.closest('.stu-tab-btn');
+      if (!btn) return;
+      var which = btn.getAttribute('data-stu-tab');
+      if (which) switchStudentModalTab(which);
+    });
+
+    function renderStudentFinances(student) {
+      var received = Number(student.student_paid || 0);
+      var total = Number(student.student_total || 0);
+      var expected = Math.max(0, total - received);
+      var fmt = function (n) { return new Intl.NumberFormat('ru-RU').format(Math.round(Number(n) || 0)); };
+      var rt = String(student.revenue_type || 'agency');
+      return (
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">' +
+        '<div style="background:rgba(255,255,255,.03);border-radius:10px;padding:14px;text-align:center">' +
+        '<div style="font-size:11px;color:#606060;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Договор</div>' +
+        '<div style="font-size:22px;font-weight:700;color:#e0e0e0">' + fmt(total) + ' ₽</div></div>' +
+        '<div style="background:rgba(34,197,94,.08);border-radius:10px;padding:14px;text-align:center">' +
+        '<div style="font-size:11px;color:#606060;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Получено</div>' +
+        '<div style="font-size:22px;font-weight:700;color:#22c55e">' + fmt(received) + ' ₽</div></div>' +
+        '<div style="background:rgba(124,58,237,.08);border-radius:10px;padding:14px;text-align:center">' +
+        '<div style="font-size:11px;color:#606060;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Ожидается</div>' +
+        '<div style="font-size:22px;font-weight:700;color:#a855f7">' + fmt(expected) + ' ₽</div></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+        '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:5px">Сумма договора ₽</label>' +
+        '<input id="sf-total" type="number" value="' + total + '" placeholder="0" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 12px;font-size:14px;outline:none;box-sizing:border-box"></div>' +
+        '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:5px">Внесено ₽</label>' +
+        '<input id="sf-paid" type="number" value="' + received + '" placeholder="0" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 12px;font-size:14px;outline:none;box-sizing:border-box"></div></div>' +
+        '<div style="margin-bottom:16px"><label style="font-size:11px;color:#606060;display:block;margin-bottom:5px">Тип дохода</label>' +
+        '<select id="sf-revenue-type" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 12px;font-size:13px">' +
+        '<option value="student"' + (rt === 'student' ? ' selected' : '') + '>Доход с ученика (не в выручку агентства)</option>' +
+        '<option value="agency"' + (rt === 'agency' ? ' selected' : '') + '>В выручку агентства</option></select></div>' +
+        '<button type="button" id="btn-save-student-finance" data-sid="' + student.id + '" style="width:100%;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:10px;font-size:14px;font-weight:600;cursor:pointer">Сохранить финансы</button>'
+      );
+    }
+
+    async function loadStudentFinancePanel(sid) {
+      var pane = document.getElementById('stu-panel-finance');
+      if (!pane || !sid) return;
+      try {
+        var st = await apiJson('/api/students/' + sid);
+        pane.innerHTML = renderStudentFinances(st);
+        var bs = document.getElementById('btn-save-student-finance');
+        if (bs) {
+          bs.onclick = function () { saveStudentFinances(+bs.dataset.sid); };
+        }
+      } catch (err) {
+        pane.innerHTML = '<div style="color:#ef4444">' + esc(err.message || 'Ошибка') + '</div>';
+      }
+    }
+
+    window.saveStudentFinances = async function (studentId) {
+      try {
+        await apiJson('/api/students/' + studentId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student_total: parseFloat(document.getElementById('sf-total') && document.getElementById('sf-total').value || 0),
+            student_paid: parseFloat(document.getElementById('sf-paid') && document.getElementById('sf-paid').value || 0),
+            revenue_type: (document.getElementById('sf-revenue-type') && document.getElementById('sf-revenue-type').value) || 'student'
+          })
+        });
+        showToast('Финансы сохранены', 'success');
+        renderStudents();
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    async function refreshStudentProjectsPanel(studentId) {
+      var pane = document.getElementById('stu-panel-projects');
+      if (!pane || !studentId) return;
+      try {
+        pane.innerHTML = await renderStudentProjects(studentId);
+      } catch (err) {
+        pane.innerHTML = '<div style="color:#ef4444">' + esc(err.message || 'Ошибка') + '</div>';
+      }
+    }
+
+    async function renderStudentProjects(studentId) {
+      var data = await apiJson('/api/students/' + studentId);
+      var projects = data.projects || [];
+      var fmt = function (n) { return new Intl.NumberFormat('ru-RU').format(Math.round(Number(n) || 0)); };
+      var list = projects.map(function (p) {
+        return '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;margin-bottom:8px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start">' +
+          '<div style="flex:1"><div style="font-size:14px;font-weight:600;color:#e0e0e0">' + esc(p.name) + '</div>' +
+          '<div style="font-size:12px;color:#606060;margin-top:3px">' + esc(p.status || '') + '</div></div>' +
+          '<button type="button" class="stu-del-prj" data-pid="' + p.id + '" data-sid="' + studentId + '" style="background:none;border:none;color:#606060;cursor:pointer;font-size:16px">×</button></div>' +
+          '<div style="display:flex;gap:12px;margin-top:10px;font-size:12px;flex-wrap:wrap">' +
+          '<span>💰 Сумма: <b>' + fmt(p.total_amount) + ' ₽</b></span>' +
+          '<span>📊 Наш %: <b>' + esc(String(p.our_percent)) + '%</b></span>' +
+          '<span>🎯 Наша доля: <b style="color:#a855f7">' + fmt(p.our_amount) + ' ₽</b></span>' +
+          '<span>✅ Получено: <b style="color:#22c55e">' + fmt(p.paid_amount) + ' ₽</b></span></div></div>';
+      }).join('');
+      if (!list) list = '<div style="color:#606060;font-size:13px;padding:20px;text-align:center">Нет проектов</div>';
+      return '<div id="student-projects-list">' + list + '</div>' +
+        '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(124,58,237,.2);border-radius:10px;padding:14px;margin-top:12px">' +
+        '<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:#a855f7">+ Новый проект ученика</div>' +
+        '<div style="display:flex;flex-direction:column;gap:8px">' +
+        '<input id="sp-name" placeholder="Название проекта *" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 12px;font-size:13px;outline:none">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+        '<div><label style="font-size:10px;color:#606060">Сумма проекта ₽</label>' +
+        '<input id="sp-total" type="number" placeholder="0" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 10px;font-size:13px;outline:none;box-sizing:border-box"></div>' +
+        '<div><label style="font-size:10px;color:#606060">Наш % </label>' +
+        '<input id="sp-percent" type="number" placeholder="0" max="100" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 10px;font-size:13px;outline:none;box-sizing:border-box"></div>' +
+        '<div><label style="font-size:10px;color:#606060">Наша сумма ₽</label>' +
+        '<input id="sp-our" type="number" readonly placeholder="авто" style="width:100%;background:#0a0a0a;border:1px solid rgba(255,255,255,.06);border-radius:8px;color:#a855f7;padding:8px 10px;font-size:13px;box-sizing:border-box"></div></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+        '<div><label style="font-size:10px;color:#606060">Уже получено ₽</label>' +
+        '<input id="sp-paid" type="number" placeholder="0" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 10px;font-size:13px;outline:none;box-sizing:border-box"></div>' +
+        '<div><label style="font-size:10px;color:#606060">Дедлайн</label>' +
+        '<input id="sp-deadline" type="date" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 10px;font-size:13px"></div></div>' +
+        '<button type="button" class="btn-add-stu-prj" data-sid="' + studentId + '" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:9px;font-size:13px;font-weight:600;cursor:pointer">Добавить проект</button>' +
+        '</div></div>';
+    }
+
+    window.recalcPercent = function () {
+      var total = parseFloat(document.getElementById('sp-total') && document.getElementById('sp-total').value || 0);
+      var pct = parseFloat(document.getElementById('sp-percent') && document.getElementById('sp-percent').value || 0);
+      var our = document.getElementById('sp-our');
+      if (our) our.value = String(Math.round(total * pct / 100));
+    };
+
+    document.getElementById('stu-panel-projects').addEventListener('input', function (e) {
+      if (e.target && (e.target.id === 'sp-total' || e.target.id === 'sp-percent')) window.recalcPercent();
+    });
+
+    document.getElementById('stu-panel-projects').addEventListener('click', function (e) {
+      var delb = e.target.closest('.stu-del-prj');
+      if (delb) {
+        window.deleteStudentProject(+delb.dataset.pid, +delb.dataset.sid);
+        return;
+      }
+      var addb = e.target.closest('.btn-add-stu-prj');
+      if (addb) window.saveStudentProject(+addb.dataset.sid);
+    });
+
+    window.saveStudentProject = async function (studentId) {
+      var nameInp = document.getElementById('sp-name');
+      var name = nameInp && nameInp.value ? nameInp.value.trim() : '';
+      if (!name) { showToast('Введите название', 'error'); return; }
+      try {
+        await apiJson('/api/students/' + studentId + '/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            total_amount: parseFloat(document.getElementById('sp-total') && document.getElementById('sp-total').value || 0),
+            our_percent: parseFloat(document.getElementById('sp-percent') && document.getElementById('sp-percent').value || 0),
+            paid_amount: parseFloat(document.getElementById('sp-paid') && document.getElementById('sp-paid').value || 0),
+            deadline: (document.getElementById('sp-deadline') && document.getElementById('sp-deadline').value) || '',
+            revenue_type: 'student'
+          })
+        });
+        showToast('Проект добавлен', 'success');
+        await refreshStudentProjectsPanel(studentId);
+        renderStudents();
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    window.deleteStudentProject = async function (projectId, studentId) {
+      if (!confirm('Удалить проект?')) return;
+      try {
+        await apiJson('/api/students/projects/' + projectId, { method: 'DELETE' });
+        showToast('Проект удалён', 'success');
+        await refreshStudentProjectsPanel(studentId);
+        renderStudents();
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    async function refreshStudentExpensesPanel(studentId) {
+      var pane = document.getElementById('stu-panel-expenses');
+      if (!pane || !studentId) return;
+      try {
+        pane.innerHTML = await renderStudentExpenses(studentId);
+      } catch (err) {
+        pane.innerHTML = '<div style="color:#ef4444">' + esc(err.message || 'Ошибка') + '</div>';
+      }
+    }
+
+    async function renderStudentExpenses(studentId) {
+      var data = await apiJson('/api/students/' + studentId);
+      var expenses = data.expenses || [];
+      var fmt = function (n) { return new Intl.NumberFormat('ru-RU').format(Math.round(Number(n) || 0)); };
+      var totalExp = expenses.reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+      var paidExp = expenses.filter(function (e) { return e.paid; }).reduce(function (s, e) { return s + (Number(e.amount) || 0); }, 0);
+      var list = expenses.map(function (e) {
+        var paid = !!e.paid;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">' +
+          '<input type="checkbox" class="stu-exp-paid" data-eid="' + e.id + '"' + (paid ? ' checked' : '') + ' style="accent-color:#7c3aed;width:16px;height:16px;cursor:pointer">' +
+          '<span style="flex:1;font-size:13px;color:' + (paid ? '#606060' : '#e0e0e0') + ';text-decoration:' + (paid ? 'line-through' : 'none') + '">' + esc(e.description) + '</span>' +
+          '<span style="font-size:13px;font-weight:600;color:' + (paid ? '#606060' : '#ef4444') + '">' + fmt(e.amount) + ' ₽</span>' +
+          '<button type="button" class="stu-del-exp" data-eid="' + e.id + '" data-sid="' + studentId + '" style="background:none;border:none;color:#606060;cursor:pointer;font-size:14px">×</button></div>';
+      }).join('');
+      if (!list) list = '<div style="color:#606060;font-size:13px;padding:20px;text-align:center">Нет расходов</div>';
+      return '<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:90px;background:rgba(239,68,68,.08);border-radius:8px;padding:12px;text-align:center">' +
+        '<div style="font-size:10px;color:#606060;text-transform:uppercase;margin-bottom:4px">Всего расходов</div>' +
+        '<div style="font-size:18px;font-weight:700;color:#ef4444">' + fmt(totalExp) + ' ₽</div></div>' +
+        '<div style="flex:1;min-width:90px;background:rgba(34,197,94,.08);border-radius:8px;padding:12px;text-align:center">' +
+        '<div style="font-size:10px;color:#606060;text-transform:uppercase;margin-bottom:4px">Выплачено</div>' +
+        '<div style="font-size:18px;font-weight:700;color:#22c55e">' + fmt(paidExp) + ' ₽</div></div>' +
+        '<div style="flex:1;min-width:90px;background:rgba(255,255,255,.03);border-radius:8px;padding:12px;text-align:center">' +
+        '<div style="font-size:10px;color:#606060;text-transform:uppercase;margin-bottom:4px">Осталось</div>' +
+        '<div style="font-size:18px;font-weight:700;color:#f59e0b">' + fmt(totalExp - paidExp) + ' ₽</div></div></div>' +
+        '<div id="expenses-list">' + list + '</div>' +
+        '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' +
+        '<input id="exp-desc" placeholder="Описание расхода" style="flex:1;min-width:120px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 12px;font-size:13px;outline:none">' +
+        '<input id="exp-amount" type="number" placeholder="₽" style="width:90px;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:8px 12px;font-size:13px;outline:none">' +
+        '<button type="button" class="btn-add-exp" data-sid="' + studentId + '" style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;color:#ef4444;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap">+ Расход</button></div>';
+    }
+
+    document.getElementById('stu-panel-expenses').addEventListener('click', function (e) {
+      var delb = e.target.closest('.stu-del-exp');
+      if (delb) {
+        window.deleteStudentExpense(+delb.dataset.eid, +delb.dataset.sid);
+        return;
+      }
+      var addb = e.target.closest('.btn-add-exp');
+      if (addb) window.addStudentExpense(+addb.dataset.sid);
+    });
+
+    document.getElementById('stu-panel-expenses').addEventListener('change', function (e) {
+      if (e.target && e.target.classList.contains('stu-exp-paid')) {
+        window.toggleExpensePaid(+e.target.dataset.eid, e.target.checked);
+      }
+    });
+
+    window.addStudentExpense = async function (studentId) {
+      var desc = document.getElementById('exp-desc') && document.getElementById('exp-desc').value.trim();
+      var amount = parseFloat(document.getElementById('exp-amount') && document.getElementById('exp-amount').value || 0);
+      if (!desc) { showToast('Введите описание', 'error'); return; }
+      try {
+        await apiJson('/api/students/' + studentId + '/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description: desc, amount: amount })
+        });
+        if (document.getElementById('exp-desc')) document.getElementById('exp-desc').value = '';
+        if (document.getElementById('exp-amount')) document.getElementById('exp-amount').value = '';
+        showToast('Расход добавлен', 'success');
+        await refreshStudentExpensesPanel(studentId);
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    window.toggleExpensePaid = async function (expId, isPaid) {
+      try {
+        await apiJson('/api/students/expenses/' + expId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paid: isPaid ? 1 : 0 })
+        });
+        showToast(isPaid ? 'Выплачено' : 'Отменено', 'success');
+        if (editStu) await refreshStudentExpensesPanel(editStu);
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    window.deleteStudentExpense = async function (expId, studentId) {
+      if (!confirm('Удалить расход?')) return;
+      try {
+        await apiJson('/api/students/expenses/' + expId, { method: 'DELETE' });
+        showToast('Удалено', 'success');
+        await refreshStudentExpensesPanel(studentId);
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    };
+
+    function openStudent(id) {
+      editStu = id;
+      ['finance', 'projects', 'expenses'].forEach(function (pfx) {
+        var t = document.getElementById('stu-tab-' + pfx);
+        if (!t) return;
+        if (id) t.removeAttribute('hidden');
+        else t.setAttribute('hidden', 'hidden');
+      });
+      var pf = document.getElementById('stu-panel-finance');
+      var pp = document.getElementById('stu-panel-projects');
+      var pe = document.getElementById('stu-panel-expenses');
+      if (pf) pf.innerHTML = '';
+      if (pp) pp.innerHTML = '';
+      if (pe) pe.innerHTML = '';
+      switchStudentModalTab('main');
+
+      api('/api/students').then(function (r) { return r.json(); }).then(function (j) {
+        var s = id ? (j.students || []).find(function (x) { return x.id === id; }) : null;
+        document.getElementById('student-modal-title').textContent = id ? 'Редактировать ученика' : 'Новый ученик';
+        document.getElementById('student-name').value = (s && s.name) || '';
+        document.getElementById('student-contact').value = (s && s.contact) || '';
+        document.getElementById('student-program').value = (s && s.program) || '';
+        document.getElementById('student-source').value = (s && s.source) || '';
+        document.getElementById('student-revenue-type').value = (s && s.revenue_type) || 'agency';
+        document.getElementById('student-sessions').value = (s && s.total_sessions != null) ? s.total_sessions : '';
+        document.getElementById('student-completed').value = (s && s.completed_sessions != null) ? s.completed_sessions : '';
+        document.getElementById('student-next-session').value = (s && s.next_session_date) ? String(s.next_session_date).slice(0, 10) : '';
+        document.getElementById('student-total').value = (s && s.payment_total != null) ? s.payment_total : '';
+        document.getElementById('student-received').value = (s && s.payment_received != null) ? s.payment_received : '';
+        document.getElementById('student-notes').value = (s && s.progress_notes) || '';
+        document.getElementById('student-extra-notes').value = (s && s.notes) || '';
+        document.getElementById('student-status').value = (s && s.status) || 'active';
+        openModal('student-modal');
+      });
+    }
+
+    document.getElementById('btnAddStudent').onclick = function () { openStudent(null); };
+    document.getElementById('student-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('student-modal'); });
+    document.getElementById('student-modal-close').onclick = function () { closeModal('student-modal'); };
+    document.getElementById('btnCancelStudent').onclick = function () { closeModal('student-modal'); };
+    document.getElementById('btnSaveStudent').onclick = async function () {
+      var body = {
+        name: document.getElementById('student-name').value.trim(),
+        contact: document.getElementById('student-contact').value || null,
+        program: document.getElementById('student-program').value || null,
+        source: document.getElementById('student-source').value || null,
+        revenue_type: document.getElementById('student-revenue-type').value || null,
+        total_sessions: Number(document.getElementById('student-sessions').value) || 0,
+        completed_sessions: Number(document.getElementById('student-completed').value) || 0,
+        payment_total: Number(document.getElementById('student-total').value) || 0,
+        payment_received: Number(document.getElementById('student-received').value) || 0,
+        next_session_date: document.getElementById('student-next-session').value || null,
+        progress_notes: document.getElementById('student-notes').value || null,
+        notes: document.getElementById('student-extra-notes').value || null,
+        status: document.getElementById('student-status').value
+      };
+      if (!body.name) { showToast('Укажите имя', 'error'); return; }
+      if (editStu) await api('/api/students/' + editStu, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      else await api('/api/students', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      closeModal('student-modal');
+      renderStudents();
+      showToast('Сохранено', 'success');
+    };
+
+    async function quickStudentUpdate(sid, payload) {
+      var r = await api('/api/students/' + sid + '/quick-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var j = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        throw new Error(j.detail || 'Не удалось обновить ученика');
+      }
+      return j;
+    }
+
+    async function quickStudentActionFromCard(sid, action) {
+      await loadAllData();
+      var sj = await (await api('/api/students')).json();
+      var student = (sj.students || []).find(function (x) { return x.id === sid; });
+      if (!student) return;
+      try {
+        if (action === 'session_completed') {
+          openNextSessionDateModal(
+            student.next_session_date,
+            'Дата следующего созвона',
+            async function (nextSession) {
+              await quickStudentUpdate(sid, {
+                action: 'session_completed',
+                project_id: (defaultStudentProject(student) || {}).id || null,
+                next_session_date: nextSession || null,
+                note: 'Созвон проведён из карточки ученика'
+              });
+              showToast('Созвон засчитан', 'success');
+              renderStudents();
+            }
+          );
+          return;
+        }
+        if (action === 'progress_plus') {
+          var project = defaultStudentProject(student);
+          if (!project) {
+            showToast('У ученика нет связанного проекта. Откройте «Курирование» и свяжите через клиента.', 'error');
+            return;
+          }
+          await quickStudentUpdate(sid, {
+            action: 'progress_plus',
+            project_id: project.id,
+            progress_delta: 10,
+            note: 'Прогресс проекта +10% из карточки ученика'
+          });
+          showToast('Прогресс проекта увеличен', 'success');
+        }
+        renderStudents();
+      } catch (e) {
+        showToast(e.message || 'Ошибка', 'error');
+      }
+    }
+
+    function renderStudentLogs(logs) {
+      var list = logs || [];
+      var el = document.getElementById('stProgressLogs');
+      if (!el) return;
+      el.innerHTML = list.length ? list.map(function (log) {
+        var titleMap = {
+          session_completed: 'Созвон',
+          progress_plus: 'Прогресс',
+          stage_update: 'Этап',
+          activity_log: 'Лог'
+        };
+        return '<div class="st-log-item">' +
+          '<div class="st-log-meta">' + esc(String(log.created_at || '').slice(0, 16).replace('T', ' ')) + (log.project_name ? ' · ' + esc(log.project_name) : '') + '</div>' +
+          '<div style="color:var(--hq-text);font-weight:600;">' + esc(titleMap[log.action_type] || log.action_type || 'Обновление') + '</div>' +
+          '<div style="color:var(--hq-text-secondary);font-size:12px;line-height:1.5;">' + esc(log.note || '') + '</div>' +
+          '</div>';
+      }).join('') : '<div style="color:var(--hq-muted);font-size:12px;">Пока нет записей по курированию</div>';
+    }
+
+    function renderStudentCoachSummary(student) {
+      var project = defaultStudentProject(student);
+      var html = '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">' +
+        '<div><div style="font-size:15px;font-weight:600;color:var(--hq-text);">' + esc(student.name || '') + '</div>' +
+        '<div style="font-size:12px;color:var(--hq-text-secondary);margin-top:4px;">' + esc(student.program || 'Программа не указана') + '</div></div>' +
+        studentStatusBadge(student.status) + '</div>';
+      html += '<div class="st-coach-meta">' +
+        '<span class="st-pill">Сессии: ' + Number(student.completed_sessions || 0) + ' / ' + Number(student.total_sessions || 0) + '</span>' +
+        '<span class="st-pill">Следующий созвон: ' + esc(formatDateRu(student.next_session_date)) + '</span>' +
+        '<span class="st-pill">Основной проект: ' + esc(project ? project.name : 'не найден') + '</span>' +
+        '</div>';
+      document.getElementById('stCoachSummary').innerHTML = html;
+    }
+
+    function renderStudentProjectsPanel(student) {
+      var wrap = document.getElementById('stProjectsWrap');
+      if (!wrap) return;
+      var studentProjects = relatedStudentProjects(student);
+      wrap.innerHTML = '<div style="font-weight:600;color:var(--hq-text);margin-bottom:8px;">Проекты ученика</div>' + (studentProjects.length ? studentProjects.map(function (project) {
+        var progress = Math.min(100, Number(project.progress || 0));
+        return '<div class="st-coach-project">' +
+          '<div class="st-coach-project-head"><div><div style="font-weight:600;color:var(--hq-text);">' + esc(project.name || '') + '</div><div style="font-size:12px;color:var(--hq-text-secondary);margin-top:2px;">' + esc(stageLabel(project.stage)) + '</div></div>' +
+          '<span class="st-pill">' + progress + '%</span></div>' +
+          '<div class="progress-wrap" style="margin:0 0 8px;"><div class="progress-bar" style="width:' + progress + '%"></div></div>' +
+          '<div class="st-inline-actions">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-st-call="' + project.id + '">+ Созвон</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-st-progress="' + project.id + '" data-delta="5">+5%</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-st-progress="' + project.id + '" data-delta="10">+10%</button>' +
+          '</div>' +
+          '<div class="form-group" style="margin-top:8px;"><label>Этап проекта</label><div style="display:flex;gap:8px;align-items:center;"><select class="hq-input st-stage-select" data-project-stage="' + project.id + '">' +
+          PROJECT_STAGE_OPTIONS.map(function (item) {
+            return '<option value="' + item.value + '"' + (String(project.stage || '').toLowerCase() === item.value ? ' selected' : '') + '>' + item.label + '</option>';
+          }).join('') +
+          '</select><button type="button" class="btn btn-primary btn-sm" data-save-stage="' + project.id + '">Сохранить этап</button></div></div>' +
+          '</div>';
+      }).join('') : '<div style="color:var(--hq-muted);font-size:12px;">У ученика пока нет привязанных проектов клиента.</div>');
+
+      wrap.querySelectorAll('[data-st-call]').forEach(function (btn) {
+        btn.onclick = async function () {
+          try {
+            openNextSessionDateModal(
+              student.next_session_date,
+              'Дата следующего созвона',
+              async function (next) {
+                await quickStudentUpdate(student.id, {
+                  action: 'session_completed',
+                  project_id: +btn.dataset.stCall,
+                  next_session_date: next || null,
+                  note: 'Созвон проведён по проекту'
+                });
+                openStTasks(student.id);
+                renderStudents();
+              }
+            );
+          } catch (e) {
+            showToast(e.message || 'Ошибка', 'error');
+          }
+        };
+      });
+      wrap.querySelectorAll('[data-st-progress]').forEach(function (btn) {
+        btn.onclick = async function () {
+          try {
+            await quickStudentUpdate(student.id, {
+              action: 'progress_plus',
+              project_id: +btn.dataset.stProgress,
+              progress_delta: +btn.dataset.delta,
+              note: 'Прогресс проекта +' + btn.dataset.delta + '%'
+            });
+            openStTasks(student.id);
+            renderStudents();
+          } catch (e) {
+            showToast(e.message || 'Ошибка', 'error');
+          }
+        };
+      });
+      wrap.querySelectorAll('[data-save-stage]').forEach(function (btn) {
+        btn.onclick = async function () {
+          try {
+            var select = wrap.querySelector('[data-project-stage="' + btn.dataset.saveStage + '"]');
+            await quickStudentUpdate(student.id, {
+              action: 'stage_update',
+              project_id: +btn.dataset.saveStage,
+              stage: select ? select.value : '',
+              note: 'Этап обновлён куратором'
+            });
+            openStTasks(student.id);
+            renderStudents();
+          } catch (e) {
+            showToast(e.message || 'Ошибка', 'error');
+          }
+        };
+      });
+    }
+
+    async function openStTasks(sid) {
+      stTaskSid = sid;
+      await loadAllData();
+      var j = await (await api('/api/students')).json();
+      var s = (j.students || []).find(function (x) { return x.id === sid; });
+      var logsResp = await (await api('/api/students/' + sid + '/progress-logs?limit=12')).json();
+      var logs = logsResp.logs || [];
+      document.getElementById('stTasksTitle').textContent = 'Курирование: ' + (s && s.name || '');
+      if (s) {
+        renderStudentCoachSummary(s);
+        renderStudentProjectsPanel(s);
+      } else {
+        document.getElementById('stCoachSummary').innerHTML = '';
+        document.getElementById('stProjectsWrap').innerHTML = '';
+      }
+      renderStudentLogs(logs);
+      var tj = await (await api('/api/students/' + sid + '/tasks')).json();
+      var tasks = tj.tasks || [];
+      document.getElementById('stTasksList').innerHTML = tasks.map(function (t) {
+        return '<div class="card card-tight" style="margin-bottom:8px;"><strong>' + esc(t.title) + '</strong> <span style="color:var(--hq-muted);font-size:12px;">' + esc(t.status) + '</span><div class="form-group"><label>Оценка 1–10</label><input type="number" min="1" max="10" id="g_' + t.id + '" value="' + (t.grade != null ? t.grade : '') + '" /></div><div class="form-group"><label>Обратная связь</label><textarea id="f_' + t.id + '" rows="2">' + esc(t.feedback || '') + '</textarea></div><button type="button" class="btn btn-ghost btn-sm btn-save-st" data-id="' + t.id + '" style="margin-top:6px;">Сохранить</button></div>';
+      }).join('') || '<p style="color:var(--hq-muted)">Нет заданий</p>';
+      document.getElementById('newStTaskTitle').value = '';
+      openModal('st-tasks-modal');
+      document.getElementById('stTasksList').querySelectorAll('.btn-save-st').forEach(function (b) {
+        b.onclick = async function () {
+          var id = +b.dataset.id;
+          await api('/api/student-tasks/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            grade: Number(document.getElementById('g_' + id).value) || null,
+            feedback: document.getElementById('f_' + id).value || null,
+            status: 'reviewed'
+          }) });
+          openStTasks(sid);
+        };
+      });
+    }
+
+    document.getElementById('btnStudentQuickCall').onclick = async function () {
+      if (!stTaskSid) return;
+      try {
+        var sj = await (await api('/api/students')).json();
+        var student = (sj.students || []).find(function (x) { return x.id === stTaskSid; });
+        var project = defaultStudentProject(student);
+        openNextSessionDateModal(
+          student && student.next_session_date,
+          'Дата следующего созвона',
+          async function (next) {
+            await quickStudentUpdate(stTaskSid, {
+              action: 'session_completed',
+              project_id: project ? project.id : null,
+              next_session_date: next || null,
+              note: 'Созвон проведён из панели куратора'
+            });
+            openStTasks(stTaskSid);
+            renderStudents();
+            showToast('Созвон добавлен', 'success');
+          }
+        );
+      } catch (e) {
+        showToast(e.message || 'Ошибка', 'error');
+      }
+    };
+
+    document.getElementById('btnStudentQuickProgress').onclick = async function () {
+      if (!stTaskSid) return;
+      try {
+        var sj = await (await api('/api/students')).json();
+        var student = (sj.students || []).find(function (x) { return x.id === stTaskSid; });
+        var project = defaultStudentProject(student);
+        if (!project) throw new Error('Нет связанного проекта');
+        await quickStudentUpdate(stTaskSid, {
+          action: 'progress_plus',
+          project_id: project.id,
+          progress_delta: 10,
+          note: 'Быстрый прирост прогресса +10%'
+        });
+        openStTasks(stTaskSid);
+        renderStudents();
+        showToast('Прогресс обновлён', 'success');
+      } catch (e) {
+        showToast(e.message || 'Ошибка', 'error');
+      }
+    };
+
+    document.getElementById('btnStudentQuickLog').onclick = async function () {
+      if (!stTaskSid) return;
+      openCuratorNoteModal(async function (note) {
+        try {
+          var sj = await (await api('/api/students')).json();
+          var student = (sj.students || []).find(function (x) { return x.id === stTaskSid; });
+          var project = defaultStudentProject(student);
+          await quickStudentUpdate(stTaskSid, {
+            action: 'activity_log',
+            project_id: project ? project.id : null,
+            note: note || 'Активность зафиксирована'
+          });
+          openStTasks(stTaskSid);
+          renderStudents();
+          showToast('Лог сохранён', 'success');
+        } catch (e) {
+          showToast(e.message || 'Ошибка', 'error');
+        }
+      });
+    };
+
+    document.getElementById('btnAddStTask').onclick = async function () {
+      var title = document.getElementById('newStTaskTitle').value.trim();
+      if (!title || !stTaskSid) return;
+      await api('/api/students/' + stTaskSid + '/tasks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title }) });
+      openStTasks(stTaskSid);
+    };
+    document.getElementById('btnCloseStTasks').onclick = function () { closeModal('st-tasks-modal'); };
+    document.getElementById('st-tasks-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('st-tasks-modal'); });
+    document.getElementById('st-tasks-close').onclick = function () { closeModal('st-tasks-modal'); };
+
+    document.getElementById('btnCloseStReport').onclick = function () { closeModal('st-report-modal'); };
+    document.getElementById('st-report-modal').addEventListener('click', function (e) { if (e.target === this) closeModal('st-report-modal'); });
+    document.getElementById('st-report-close').onclick = function () { closeModal('st-report-modal'); };
+
+    document.querySelectorAll('.crm-tabs .tab-btn').forEach(function (t) {
+      t.addEventListener('click', function () {
+        document.querySelectorAll('.crm-tabs .tab-btn').forEach(function (x) {
+          x.classList.remove('active');
+          x.setAttribute('aria-selected', 'false');
+        });
+        t.classList.add('active');
+        t.setAttribute('aria-selected', 'true');
+        document.getElementById('pane-c').style.display = t.dataset.t === 'c' ? 'flex' : 'none';
+        document.getElementById('students-tab').style.display = t.dataset.t === 's' ? 'flex' : 'none';
+      });
+    });
+
+    document.getElementById('btnAuth').onclick = async function () {
+      sessionStorage.setItem(PW_KEY, document.getElementById('inpPw').value);
+      if ((await api('/api/status')).ok) {
+        document.getElementById('mAuth').classList.remove('is-open');
+        renderClients();
+        renderStudents();
+      } else sessionStorage.removeItem(PW_KEY);
+    };
+
+    if (!getPassword()) document.getElementById('mAuth').classList.add('is-open');
+    else {
+      document.getElementById('mAuth').classList.remove('is-open');
+      renderClients();
+      renderStudents();
+    }
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  </script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+    <script src="/hq/_components.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+  <script>
+    // Скрыть финансовые поля и оплаты от не-owner
+    (function () {
+      var role = (typeof getCurrentRole === 'function') ? getCurrentRole() : 'owner';
+      if (role === 'owner') return;
+      var s = document.createElement('style');
+      s.textContent =
+        // Колонка "Оплата" в таблице клиентов (5-я колонка)
+        '.clients-table thead th:nth-child(5),' +
+        '.clients-table tbody tr td:nth-child(5){display:none !important}' +
+        // Кнопка добавления платежа и модалка оплаты
+        '#payment-modal,#btn-add-payment,#client-total,#client-paid{display:none !important}' +
+        // Метка про сумму договора в форме клиента
+        'label[for="client-total"],label[for="client-paid"]{display:none !important}';
+      document.head.appendChild(s);
+    })();
+  </script>
+</body>
+</html>

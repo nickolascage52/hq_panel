@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — На проверке</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .rv-page { display:flex; flex-direction:column; gap:14px; padding:14px 18px 18px; flex:1; min-height:0; }
+    .rv-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:12px; }
+    .rv-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; padding:14px 16px;
+      display:flex; flex-direction:column; gap:10px; cursor:pointer;
+    }
+    .rv-card:hover { border-color:rgba(245,158,11,0.4); }
+    .rv-title { font-size:14px; font-weight:600; color:var(--hq-text); }
+    .rv-meta { font-size:11px; color:var(--hq-text-secondary); display:flex; flex-wrap:wrap; gap:8px; }
+    .rv-links { display:flex; gap:6px; flex-wrap:wrap; }
+    .rv-links a, .rv-links span { font-size:11px; padding:3px 8px; border-radius:5px; background:rgba(255,255,255,0.06); color:var(--hq-cyan); text-decoration:none; }
+    .rv-empty { text-align:center; padding:60px; color:var(--hq-muted); font-size:14px; }
+    .btn { padding:6px 12px; border-radius:7px; font-size:12px; font-weight:500; cursor:pointer; border:none; font-family:inherit; }
+    .btn-primary { background:var(--hq-cyan); color:#000; }
+    .btn-secondary { background:rgba(255,255,255,0.06); color:var(--hq-text); }
+    .btn-success { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .btn-warn { background:rgba(245,158,11,0.15); color:#fbbf24; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:1000; overflow:auto; }
+    .modal-overlay.visible { display:flex; }
+    .modal-card { background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; width:100%; max-width:640px; padding:24px; display:flex; flex-direction:column; gap:14px; position:relative; }
+    .modal-close { position:absolute; top:12px; right:12px; background:transparent; border:none; cursor:pointer; color:var(--hq-text-secondary); font-size:24px; padding:4px 10px; }
+    .modal-title { font-size:16px; font-weight:600; padding-right:30px; }
+    .checklist-item { display:grid; grid-template-columns:auto 1fr; gap:8px; padding:6px 10px; background:rgba(255,255,255,0.02); border-radius:5px; font-size:13px; align-items:center; }
+    .checklist-item.done { opacity:0.6; text-decoration:line-through; }
+    .section-label { font-size:11px; font-weight:600; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:6px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .review-textarea { width:100%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:7px; padding:10px; font-size:13px; color:var(--hq-text); font-family:inherit; min-height:80px; resize:vertical; box-sizing:border-box; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">На проверке</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <span id="userBadge" style="font-size:12px;color:var(--hq-text-secondary)"></span>
+        <button class="btn btn-secondary" id="btnLogout">Выйти</button>
+      </div>
+    </header>
+
+    <div class="hq-content rv-page" id="rvRoot">
+      <div style="text-align:center;padding:40px;color:var(--hq-muted)">Загрузка...</div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-card">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title" id="taskModalTitle">Задача</div>
+      <div id="taskModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const root = document.getElementById('rvRoot');
+      const taskModal = document.getElementById('taskModal');
+      const taskModalBody = document.getElementById('taskModalBody');
+      const taskModalTitle = document.getElementById('taskModalTitle');
+      const userBadge = document.getElementById('userBadge');
+      const user = getCurrentUser();
+      userBadge.textContent = user.name + ' · ' + user.role;
+
+      let tasks = [];
+      let currentTask = null;
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      function timeSince(iso) {
+        if (!iso) return '';
+        const d = new Date(iso.replace(' ', 'T') + 'Z');
+        const diff = (Date.now() - d.getTime()) / 1000;
+        if (diff < 3600) return Math.round(diff / 60) + ' мин';
+        if (diff < 86400) return Math.round(diff / 3600) + ' ч';
+        return Math.round(diff / 86400) + ' д';
+      }
+
+      function renderCard(t) {
+        return (
+          '<div class="rv-card" data-tid="' + t.id + '">' +
+            '<div class="rv-title">' + escapeHtml(t.title) + '</div>' +
+            '<div class="rv-meta">' +
+              '<span>📦 ' + escapeHtml(t.project_name || '—') + '</span>' +
+              (t.assignee_name ? '<span>👤 ' + escapeHtml(t.assignee_name) + '</span>' : '') +
+              (t.updated_at ? '<span>⏱ в Review ' + timeSince(t.updated_at) + ' назад</span>' : '') +
+            '</div>' +
+            (t.result_comment ? '<div style="font-size:12px;color:var(--hq-text);background:rgba(0,212,255,0.06);padding:8px 10px;border-radius:6px">' + escapeHtml(t.result_comment) + '</div>' : '') +
+            '<div class="rv-links">' +
+              (t.pull_request_url ? '<a href="' + escapeHtml(t.pull_request_url) + '" target="_blank" onclick="event.stopPropagation()">PR →</a>' : '<span style="color:#f87171">Нет PR</span>') +
+              (t.preview_url ? '<a href="' + escapeHtml(t.preview_url) + '" target="_blank" onclick="event.stopPropagation()">Preview →</a>' : '<span style="color:#f87171">Нет Preview</span>') +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function render() {
+        if (!tasks.length) {
+          root.innerHTML = '<div class="rv-empty">🎉 Нет задач на проверке</div>';
+          return;
+        }
+        root.innerHTML = '<div class="rv-grid">' + tasks.map(renderCard).join('') + '</div>';
+        root.querySelectorAll('.rv-card').forEach(c => c.addEventListener('click', () => openTaskModal(parseInt(c.getAttribute('data-tid'), 10))));
+      }
+
+      async function openTaskModal(tid) {
+        try {
+          currentTask = await apiAuth('/api/delivery/tasks/' + tid);
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); return; }
+        renderTaskModal();
+        taskModal.classList.add('visible');
+      }
+
+      function closeTaskModal() {
+        taskModal.classList.remove('visible');
+        currentTask = null;
+      }
+
+      function renderTaskModal() {
+        const t = currentTask;
+        taskModalTitle.textContent = t.title;
+        const checklistDone = t.checklist.filter(i => i.is_completed).length;
+        const checklistTotal = t.checklist.length;
+        const allChecked = checklistTotal > 0 && checklistDone === checklistTotal;
+        taskModalBody.innerHTML = (
+          '<div style="font-size:12px;color:var(--hq-text-secondary)">' +
+            '📦 ' + escapeHtml(t.project_name || '—') +
+            (t.assignee_name ? ' · 👤 ' + escapeHtml(t.assignee_name) : '') +
+          '</div>' +
+          (t.description ? '<div><div class="section-label">Описание</div><div style="font-size:13px;line-height:1.5">' + escapeHtml(t.description) + '</div></div>' : '') +
+          (t.goal ? '<div><div class="section-label">Цель</div><div style="font-size:13px;line-height:1.5">' + escapeHtml(t.goal) + '</div></div>' : '') +
+          '<div class="rv-links" style="gap:8px">' +
+            (t.pull_request_url ? '<a href="' + escapeHtml(t.pull_request_url) + '" target="_blank" class="btn btn-secondary">PR →</a>' : '<span style="color:#f87171;font-size:12px">Нет PR</span>') +
+            (t.preview_url ? '<a href="' + escapeHtml(t.preview_url) + '" target="_blank" class="btn btn-secondary">Preview →</a>' : '<span style="color:#f87171;font-size:12px">Нет Preview</span>') +
+          '</div>' +
+          (t.result_comment ? '<div><div class="section-label">Комментарий исполнителя</div><div style="font-size:13px;background:rgba(0,212,255,0.06);padding:10px;border-radius:6px">' + escapeHtml(t.result_comment) + '</div></div>' : '') +
+          '<div class="section-label">Чеклист (' + checklistDone + '/' + checklistTotal + ')' + (!allChecked ? ' — есть незакрытые пункты' : '') + '</div>' +
+          '<div>' + t.checklist.map(item => (
+            '<div class="checklist-item' + (item.is_completed ? ' done' : '') + '">' +
+              '<input type="checkbox"' + (item.is_completed ? ' checked' : '') + ' data-cl-id="' + item.id + '" />' +
+              '<span>' + escapeHtml(item.title) + '</span>' +
+            '</div>'
+          )).join('') + '</div>' +
+          '<div class="section-label">Замечания ревьюера</div>' +
+          '<textarea class="review-textarea" id="rv-comment" placeholder="Что нужно исправить или подтверждение приёмки">' + escapeHtml(t.review_comment || '') + '</textarea>' +
+          '<div class="modal-actions">' +
+            '<button class="btn btn-warn" id="btn-changes">↻ На доработку</button>' +
+            '<button class="btn btn-success" id="btn-approve">✓ Одобрить</button>' +
+          '</div>'
+        );
+        bindTaskModalHandlers();
+      }
+
+      function bindTaskModalHandlers() {
+        document.querySelectorAll('[data-cl-id]').forEach(cb => {
+          cb.addEventListener('change', async function () {
+            try {
+              await apiAuth('/api/delivery/checklist/' + cb.getAttribute('data-cl-id'), 'PUT', { is_completed: cb.checked });
+              cb.parentElement.classList.toggle('done', cb.checked);
+            } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+          });
+        });
+        document.getElementById('btn-approve').addEventListener('click', async function () {
+          const comment = document.getElementById('rv-comment').value;
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', { status: 'Approved', review_comment: comment });
+            showToast('Задача одобрена', 'success');
+            closeTaskModal();
+            await loadTasks();
+            render();
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+        document.getElementById('btn-changes').addEventListener('click', async function () {
+          const comment = document.getElementById('rv-comment').value;
+          if (!comment.trim()) { showToast('Опишите замечания', 'error'); return; }
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', { status: 'Changes Requested', review_comment: comment });
+            showToast('Возвращено на доработку', 'success');
+            closeTaskModal();
+            await loadTasks();
+            render();
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+      }
+
+      taskModal.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closeTaskModal));
+      taskModal.addEventListener('click', e => { if (e.target === taskModal) closeTaskModal(); });
+
+      async function loadTasks() {
+        const r = await apiAuth('/api/delivery/tasks?status=Review');
+        tasks = (r && r.tasks) || [];
+      }
+
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      tickClock(); setInterval(tickClock, 30000);
+
+      document.getElementById('btnLogout').addEventListener('click', function () {
+        if (confirm('Выйти?')) window.hqLogout();
+      });
+
+      (async function init() {
+        try {
+          await loadTasks();
+          render();
+        } catch (e) {
+          root.innerHTML = '<div style="padding:40px;text-align:center;color:#f87171">Ошибка: ' + e.message + '</div>';
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

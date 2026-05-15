@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — Производство</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .delivery-page { display:flex; flex-direction:column; gap:16px; padding:16px 20px 20px; flex:1; min-height:0; }
+    .delivery-toolbar {
+      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    }
+    .delivery-toolbar .left { display:flex; align-items:center; gap:12px; }
+    .delivery-toolbar h1 { font-size:20px; font-weight:700; margin:0; color:var(--hq-text); }
+    .delivery-toolbar .filters { display:flex; gap:8px; align-items:center; }
+    .delivery-toolbar select, .delivery-toolbar input {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:8px;
+      padding:8px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .delivery-metrics { display:grid; grid-template-columns:repeat(5, 1fr); gap:12px; }
+    .metric-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px;
+      padding:14px 16px; display:flex; flex-direction:column; gap:4px;
+    }
+    .metric-card.warn { border-color:rgba(245,158,11,0.4); }
+    .metric-card.danger { border-color:rgba(239,68,68,0.4); }
+    .metric-value { font-size:28px; font-weight:700; color:var(--hq-text); }
+    .metric-card.warn .metric-value { color:#fbbf24; }
+    .metric-card.danger .metric-value { color:#f87171; }
+    .metric-label { font-size:11px; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.5px; }
+    .delivery-projects-list {
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px;
+      align-content:start; min-height:0; overflow:auto;
+    }
+    .delivery-project-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px;
+      padding:16px; display:flex; flex-direction:column; gap:10px;
+      cursor:pointer; transition:border-color 0.15s, transform 0.1s;
+    }
+    .delivery-project-card:hover { border-color:rgba(0,212,255,0.4); transform:translateY(-1px); }
+    .dpc-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+    .dpc-name { font-size:15px; font-weight:600; color:var(--hq-text); line-height:1.4; }
+    .status-badge {
+      padding:3px 8px; border-radius:6px; font-size:11px; font-weight:500; white-space:nowrap;
+      background:rgba(255,255,255,0.06); color:var(--hq-text-secondary);
+    }
+    .status-badge.s-Подготовка { background:rgba(156,163,175,0.15); color:#9ca3af; }
+    .status-badge.s-В-работе { background:rgba(0,212,255,0.15); color:#00d4ff; }
+    .status-badge.s-На-проверке { background:rgba(245,158,11,0.15); color:#fbbf24; }
+    .status-badge.s-Завершён { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .status-badge.s-Заморожен { background:rgba(168,85,247,0.15); color:#c084fc; }
+    .status-badge.s-Черновик { background:rgba(107,114,128,0.15); color:#9ca3af; }
+    .dpc-client { font-size:12px; color:var(--hq-text-secondary); }
+    .dpc-progress { display:flex; align-items:center; gap:8px; }
+    .progress-bar {
+      flex:1; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden;
+    }
+    .progress-bar-fill { height:100%; background:var(--hq-cyan); transition:width 0.3s; }
+    .dpc-progress-pct { font-size:12px; font-weight:600; color:var(--hq-text); min-width:36px; text-align:right; }
+    .dpc-meta { display:flex; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--hq-text-secondary); }
+    .dpc-meta .warn { color:#fbbf24; }
+    .dpc-meta .danger { color:#f87171; }
+    .dpc-links { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .dpc-links a {
+      font-size:11px; padding:3px 8px; background:rgba(255,255,255,0.06); border-radius:6px;
+      color:var(--hq-cyan); text-decoration:none;
+    }
+    .dpc-links a:hover { background:rgba(0,212,255,0.15); }
+    .dpc-empty {
+      grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--hq-muted); font-size:14px;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none;
+      align-items:flex-start; justify-content:center; padding:60px 20px 20px; z-index:1000;
+      overflow:auto;
+    }
+    .modal-overlay.visible { display:flex; }
+    .modal-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px;
+      width:100%; max-width:560px; padding:24px; display:flex; flex-direction:column; gap:14px;
+    }
+    .modal-title { font-size:18px; font-weight:600; color:var(--hq-text); }
+    .modal-close {
+      position:absolute; top:16px; right:16px; background:transparent; border:none; cursor:pointer;
+      color:var(--hq-text-secondary); font-size:20px;
+    }
+    .modal-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modal-form .full { grid-column:1/-1; }
+    .modal-form label { display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--hq-text-secondary); font-weight:500; }
+    .modal-form input, .modal-form select, .modal-form textarea {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:8px;
+      padding:8px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .modal-form textarea { min-height:60px; resize:vertical; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+    .btn { padding:8px 14px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:none; font-family:inherit; }
+    .btn-primary { background:var(--hq-cyan); color:#000; }
+    .btn-secondary { background:rgba(255,255,255,0.06); color:var(--hq-text); }
+    .btn-danger { background:rgba(239,68,68,0.15); color:#f87171; }
+    .btn:hover { opacity:0.9; }
+    .btn:disabled { opacity:0.5; cursor:wait; }
+    .template-card {
+      transition:border-color 0.15s, background 0.15s;
+    }
+    .template-card:hover { border-color:rgba(0,212,255,0.25) !important; }
+      .delivery-metrics { grid-template-columns:repeat(3, 1fr); }
+    }
+    @media (max-width:780px) {
+      .delivery-metrics { grid-template-columns:repeat(2, 1fr); }
+      .delivery-projects-list { grid-template-columns:1fr; }
+      .modal-form { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Производство</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <button class="btn btn-primary" id="btnNewProject" data-roles="owner,pm">
+          <i data-lucide="plus" style="width:14px;height:14px;vertical-align:middle"></i> Проект
+        </button>
+        <button class="btn btn-secondary" id="btnLogout" title="Выйти">
+          <i data-lucide="log-out" style="width:14px;height:14px;vertical-align:middle"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="hq-content delivery-page">
+      <div class="delivery-toolbar">
+        <div class="left">
+          <h1>Все проекты</h1>
+        </div>
+        <div class="filters">
+          <select id="filterStatus">
+            <option value="">Все статусы</option>
+            <option value="Подготовка">Подготовка</option>
+            <option value="В работе">В работе</option>
+            <option value="На проверке">На проверке</option>
+            <option value="Ожидает клиента">Ожидает клиента</option>
+            <option value="Запущен">Запущен</option>
+            <option value="Завершён">Завершён</option>
+            <option value="Заморожен">Заморожен</option>
+            <option value="Черновик">Черновик</option>
+          </select>
+          <input type="text" id="filterSearch" placeholder="Поиск: название, клиент, ученик…" />
+        </div>
+      </div>
+
+      <div class="delivery-metrics">
+        <div class="metric-card">
+          <span class="metric-value" id="dm-active">—</span>
+          <span class="metric-label">Активных проектов</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-value" id="dm-inprogress">—</span>
+          <span class="metric-label">Задач в работе</span>
+        </div>
+        <div class="metric-card warn" id="dm-review-card">
+          <span class="metric-value" id="dm-review">—</span>
+          <span class="metric-label">На проверке</span>
+        </div>
+        <div class="metric-card danger" id="dm-overdue-card">
+          <span class="metric-value" id="dm-overdue">—</span>
+          <span class="metric-label">Просрочено</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-value" id="dm-blocked">—</span>
+          <span class="metric-label">Заблокировано</span>
+        </div>
+      </div>
+
+      <div class="delivery-projects-list" id="projectsList">
+        <div class="dpc-empty">Загрузка...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Project -->
+  <div class="modal-overlay" id="newProjectModal">
+    <div class="modal-card" style="position:relative">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title">Новый проект</div>
+      <form class="modal-form" id="newProjectForm">
+        <label class="full">
+          Название *
+          <input type="text" name="name" required />
+        </label>
+        <label>
+          Тип
+          <select name="type">
+            <option>Лендинг</option>
+            <option>AI-ассистент</option>
+            <option>Telegram-бот</option>
+            <option>n8n-автоматизация</option>
+            <option>Сайт</option>
+            <option>CRM-интеграция</option>
+            <option>PDF-отчёт</option>
+            <option>Аудит</option>
+            <option>Другое</option>
+          </select>
+        </label>
+        <label class="full">
+          Шаблон (создаст этапы и задачи)
+          <input type="hidden" name="template_id" id="templateIdHidden" value="" />
+          <div id="templateCardsGrid" style="
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+            gap:10px;margin-top:8px;
+          "></div>
+        </label>
+        <label>
+          Клиент
+          <select name="client_id">
+            <option value="">— без клиента —</option>
+          </select>
+        </label>
+        <label class="full">
+          Ученик (необязательно)
+          <select name="student_id" id="np-student">
+            <option value="">— без ученика —</option>
+          </select>
+        </label>
+        <label>
+          Чей проект
+          <select id="np-owner-type" name="owner_type">
+            <option value="agency">Агентства (в выручку)</option>
+            <option value="student">Ученика (берём %)</option>
+          </select>
+        </label>
+        <label class="full" id="np-percent-wrap" style="display:none;flex-direction:column">
+          Наш % от проекта
+          <input type="number" name="our_percent" id="np-percent" placeholder="0" min="0" max="100" step="0.01" />
+        </label>
+        <label class="full" id="np-our-amount-wrap" style="display:none;flex-direction:column">
+          Наша сумма ₽ (авто)
+          <input type="number" name="our_amount" id="np-our-amount" readonly placeholder="считается автоматически"
+            style="background:#0a0a0a;color:#a855f7" />
+        </label>
+        <label>
+          Статус
+          <select name="status">
+            <option>Подготовка</option>
+            <option>В работе</option>
+            <option>На проверке</option>
+            <option>Ожидает клиента</option>
+            <option>Запущен</option>
+            <option>Завершён</option>
+            <option>Заморожен</option>
+            <option>Черновик</option>
+          </select>
+        </label>
+        <label>
+          Приоритет
+          <select name="priority">
+            <option>Critical</option>
+            <option>High</option>
+            <option selected>Medium</option>
+            <option>Low</option>
+          </select>
+        </label>
+        <label>
+          Дедлайн
+          <input type="date" name="deadline" />
+        </label>
+        <label>
+          Бюджет (₽)
+          <input type="number" name="budget" id="np-budget" min="0" step="1000" />
+        </label>
+        <label>
+          GitHub repo URL
+          <input type="url" name="github_repo_url" placeholder="https://github.com/..." />
+        </label>
+        <label>
+          Vercel project URL
+          <input type="url" name="vercel_project_url" placeholder="https://vercel.com/..." />
+        </label>
+        <label class="full">
+          Описание
+          <textarea name="description"></textarea>
+        </label>
+        <div class="modal-actions full">
+          <button type="button" class="btn btn-secondary" data-modal-close>Отмена</button>
+          <button type="submit" class="btn btn-primary" id="newProjectSubmit">Создать</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const projectsList = document.getElementById('projectsList');
+      const dmActive = document.getElementById('dm-active');
+      const dmInprogress = document.getElementById('dm-inprogress');
+      const dmReview = document.getElementById('dm-review');
+      const dmOverdue = document.getElementById('dm-overdue');
+      const dmBlocked = document.getElementById('dm-blocked');
+
+      const filterStatus = document.getElementById('filterStatus');
+      const filterSearch = document.getElementById('filterSearch');
+
+      const modal = document.getElementById('newProjectModal');
+      const form = document.getElementById('newProjectForm');
+      const submitBtn = document.getElementById('newProjectSubmit');
+
+      let allProjects = [];
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      function renderTemplateCard(tmpl) {
+        const ic = escapeHtml(tmpl.icon || '📋');
+        const nm = escapeHtml(tmpl.name || '');
+        const ds = escapeHtml(tmpl.description || '');
+        const ed = parseInt(tmpl.estimated_days, 10) || 14;
+        return (
+          '<div class="template-card" data-template-id="' + tmpl.id + '" role="button" tabindex="0" ' +
+          'onclick="selectTemplate(' + tmpl.id + ')" ' +
+          'style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);' +
+          'border-radius:10px;padding:14px;cursor:pointer;text-align:center">' +
+          '<div style="font-size:28px;margin-bottom:8px">' + ic + '</div>' +
+          '<div style="font-size:13px;font-weight:600;color:var(--hq-text);margin-bottom:4px">' + nm + '</div>' +
+          '<div style="font-size:11px;color:var(--hq-text-secondary);margin-bottom:6px;min-height:2.4em;line-height:1.35">' + ds + '</div>' +
+          '<div style="font-size:10px;color:#a855f7;font-weight:500">~' + ed + ' дн.</div>' +
+          '</div>'
+        );
+      }
+
+      window.selectTemplate = function (templateId) {
+        document.querySelectorAll('.template-card').forEach(function (c) {
+          c.style.borderColor = 'rgba(255,255,255,.08)';
+          c.style.background = 'rgba(255,255,255,.03)';
+        });
+        const selected = document.querySelector('.template-card[data-template-id="' + templateId + '"]');
+        if (selected) {
+          selected.style.borderColor = 'rgba(124,58,237,.6)';
+          selected.style.background = 'rgba(124,58,237,.1)';
+        }
+        window._selectedTemplateId = templateId;
+        const hid = document.getElementById('templateIdHidden');
+        if (hid) hid.value = String(templateId);
+      };
+
+      function togglePercentField() {
+        var ownerTypeEl = document.getElementById('np-owner-type');
+        var ownerType = ownerTypeEl ? ownerTypeEl.value : 'agency';
+        var wrap = document.getElementById('np-percent-wrap');
+        var amtWrap = document.getElementById('np-our-amount-wrap');
+        if (wrap) wrap.style.display = ownerType === 'student' ? 'flex' : 'none';
+        if (amtWrap) amtWrap.style.display = ownerType === 'student' ? 'flex' : 'none';
+        recalcProjectAmount();
+      }
+
+      function recalcProjectAmount() {
+        var budgetEl = document.getElementById('np-budget');
+        var budget = parseFloat(budgetEl && budgetEl.value ? budgetEl.value : '0', 10) || 0;
+        var pctEl = document.getElementById('np-percent');
+        var pct = parseFloat(pctEl && pctEl.value ? pctEl.value : '0', 10) || 0;
+        var amt = document.getElementById('np-our-amount');
+        if (amt) amt.value = String(Math.round(budget * pct / 100));
+      }
+
+      async function loadStudentsForSelect() {
+        try {
+          var r = await apiAuth('/api/students');
+          var list = Array.isArray(r) ? r : ((r && r.students) || []);
+          var sel = document.getElementById('np-student');
+          if (!sel) return;
+          var opts = list
+            .filter(function (s) { return (s.status || '') === 'active' || (s.status || '') === 'paused'; })
+            .map(function (s) {
+              return '<option value="' + (s.id) + '">' + escapeHtml(s.name) + '</option>';
+            })
+            .join('');
+          sel.innerHTML = '<option value="">— без ученика —</option>' + opts;
+        } catch (e2) {}
+      }
+
+      function renderCard(p) {
+        var fmt = function (n) {
+          return new Intl.NumberFormat('ru-RU').format(Math.round(Number(n || 0)));
+        };
+
+        var statusColors = {
+          'Подготовка': '#606060',
+          'В работе': '#7c3aed',
+          'На проверке': '#f59e0b',
+          'Ожидает клиента': '#3b82f6',
+          'Запущен': '#22c55e',
+          'Завершён': '#22c55e',
+          'Заморожен': '#ef4444',
+          'Черновик': '#606060'
+        };
+        var color = statusColors[p.status] || '#606060';
+
+        var total = p.task_count || 0;
+        var done = p.done_count || 0;
+        var pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+        var clientBadge = '';
+        if (p.client_name) {
+          clientBadge = '<span style="background:rgba(59,130,246,.1);color:#3b82f6;padding:2px 8px;border-radius:6px;font-size:11px">👤 ' + escapeHtml(p.client_name) + '</span>';
+        }
+        var studentBadge = '';
+        if (p.student_name) {
+          studentBadge = '<span style="background:rgba(124,58,237,.1);color:#a855f7;padding:2px 8px;border-radius:6px;font-size:11px">🎓 ' + escapeHtml(p.student_name) + '</span>';
+        }
+        var pctBadge = '';
+        if ((p.owner_type || '') === 'student') {
+          pctBadge = '<span style="background:rgba(245,158,11,.1);color:#f59e0b;padding:2px 8px;border-radius:6px;font-size:11px">' + escapeHtml(String(p.our_percent || 0)) + '% наших</span>';
+        }
+
+        var progressBlock = '';
+        if (total > 0) {
+          progressBlock =
+            '<div style="margin-bottom:10px">' +
+              '<div style="display:flex;justify-content:space-between;font-size:11px;color:#606060;margin-bottom:4px">' +
+                '<span>' + done + '/' + total + ' задач</span><span>' + pct + '%</span>' +
+              '</div>' +
+              '<div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px">' +
+                '<div style="height:3px;background:#7c3aed;border-radius:2px;width:' + pct + '%;transition:width .3s"></div>' +
+              '</div>' +
+            '</div>';
+        }
+
+        var ourShare = '';
+        if ((p.owner_type || '') === 'student' && p.our_amount) {
+          ourShare = '<span style="color:#a855f7"> (наше: ' + fmt(p.our_amount) + ' ₽)</span>';
+        }
+
+        return (
+          '<div class="project-card" data-pid="' + p.id + '" ' +
+            'style="background:#1a1a1a;border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .2s" ' +
+            'onmouseover="this.style.borderColor=\'rgba(124,58,237,.3)\'" ' +
+            'onmouseout="this.style.borderColor=\'rgba(255,255,255,.06)\'">' +
+
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="font-size:15px;font-weight:600;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(p.name) + '</div>' +
+                '<div style="font-size:12px;color:#606060;margin-top:3px">' + escapeHtml(p.type || 'Проект') + '</div>' +
+              '</div>' +
+              '<span style="background:' + color + '18;color:' + color + ';padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;flex-shrink:0;white-space:nowrap">' +
+                escapeHtml(p.status || 'Подготовка') +
+              '</span>' +
+            '</div>' +
+
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' +
+              clientBadge + studentBadge + pctBadge +
+            '</div>' +
+
+            progressBlock +
+
+            '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#606060">' +
+              '<span>' + (p.deadline ? '📅 ' + escapeHtml(p.deadline) : '') + '</span>' +
+              '<span style="font-weight:600;color:' + (p.budget ? '#e0e0e0' : '#606060') + '">' +
+                (p.budget ? fmt(p.budget) + ' ₽' : '') + ourShare +
+              '</span>' +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function renderProjects() {
+        const q = (filterSearch.value || '').toLowerCase().trim();
+        const s = filterStatus.value;
+        const filtered = allProjects.filter(function (p) {
+          if (s && (p.status || '') !== s) return false;
+          if (q) {
+            var hay = ((p.name || '') + ' ' + (p.client_name || '') + ' ' + (p.student_name || '')).toLowerCase();
+            if (hay.indexOf(q) === -1) return false;
+          }
+          return true;
+        });
+        if (!filtered.length) {
+          projectsList.innerHTML = '<div class="dpc-empty">Нет проектов. Нажмите «+ Проект» чтобы создать.</div>';
+          return;
+        }
+        projectsList.innerHTML = filtered.map(renderCard).join('');
+        projectsList.querySelectorAll('.project-card').forEach(function (card) {
+          card.addEventListener('click', function () {
+            const pid = card.getAttribute('data-pid');
+            window.location.href = '/hq/project-detail.html?id=' + pid;
+          });
+        });
+      }
+
+      async function loadOverview() {
+        try {
+          const o = await apiAuth('/api/delivery/overview');
+          if (!o) return;
+          dmActive.textContent = o.active_projects;
+          dmInprogress.textContent = o.in_progress;
+          dmReview.textContent = o.in_review;
+          dmOverdue.textContent = o.overdue;
+          dmBlocked.textContent = o.blocked;
+        } catch (e) {
+          console.error('overview load failed:', e);
+        }
+      }
+
+      async function loadProjects() {
+        try {
+          const r = await apiAuth('/api/delivery/projects');
+          allProjects = (r && r.projects) || [];
+          renderProjects();
+        } catch (e) {
+          projectsList.innerHTML = '<div class="dpc-empty" style="color:#f87171">Ошибка загрузки: ' + escapeHtml(e.message) + '</div>';
+        }
+      }
+
+      async function loadFormOptions() {
+        try {
+          const r = await apiAuth('/api/delivery/templates');
+          const list = (r && r.templates) ? r.templates : [];
+          const grid = document.getElementById('templateCardsGrid');
+          if (grid) {
+            grid.innerHTML = list.length
+              ? '<div style="grid-column:1/-1;font-size:12px;color:var(--hq-text-secondary);margin-bottom:4px">Выберите шаблон или оставьте без шаблона</div>'
+                + list.map(renderTemplateCard).join('')
+              : '<div style="font-size:12px;color:var(--hq-muted)">Шаблоны не загружены</div>';
+          }
+        } catch (e) { console.warn('templates:', e); }
+        // Загружаем клиентов
+        try {
+          const r = await apiAuth('/api/clients');
+          const sel = form.querySelector('select[name="client_id"]');
+          const clients = Array.isArray(r) ? r : (r.clients || []);
+          clients.forEach(function (c) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name + (c.contact ? ' (' + c.contact + ')' : '');
+            sel.appendChild(opt);
+          });
+        } catch (e) { console.warn('clients:', e); }
+      }
+
+      function openModal() {
+        modal.classList.add('visible');
+        loadStudentsForSelect();
+        togglePercentField();
+      }
+      function closeModal() {
+        modal.classList.remove('visible');
+        form.reset();
+        window._selectedTemplateId = null;
+        var hid = document.getElementById('templateIdHidden');
+        if (hid) hid.value = '';
+        var ot = document.getElementById('np-owner-type');
+        if (ot) ot.value = 'agency';
+        togglePercentField();
+        document.querySelectorAll('.template-card').forEach(function (c) {
+          c.style.borderColor = 'rgba(255,255,255,.08)';
+          c.style.background = 'rgba(255,255,255,.03)';
+        });
+      }
+
+      document.getElementById('btnNewProject').addEventListener('click', openModal);
+      modal.querySelectorAll('[data-modal-close]').forEach(function (el) {
+        el.addEventListener('click', closeModal);
+      });
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeModal();
+      });
+
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Создание...';
+        try {
+          const fd = new FormData(form);
+          const payload = {};
+          fd.forEach(function (v, k) {
+            if (v === '') return;
+            if (k === 'budget') payload[k] = parseFloat(v);
+            else if (k === 'template_id' || k === 'client_id') payload[k] = parseInt(v, 10);
+            else if (k === 'student_id' || k === 'owner_type' || k === 'our_percent' || k === 'our_amount') return;
+            else payload[k] = v;
+          });
+          var sidEl = document.getElementById('np-student');
+          payload.student_id = sidEl && sidEl.value ? parseInt(sidEl.value, 10) : null;
+          var otEl = document.getElementById('np-owner-type');
+          payload.owner_type = otEl && otEl.value ? otEl.value : 'agency';
+          var pEl = document.getElementById('np-percent');
+          payload.our_percent = parseFloat(pEl && pEl.value ? pEl.value : '0', 10) || 0;
+          var oaEl = document.getElementById('np-our-amount');
+          payload.our_amount = parseFloat(oaEl && oaEl.value ? oaEl.value : '0', 10) || 0;
+          const created = await apiAuth('/api/delivery/projects', 'POST', payload);
+          showToast('Проект «' + created.name + '» создан', 'success');
+          closeModal();
+          await loadProjects();
+          await loadOverview();
+          // Сразу открываем новый проект
+          window.location.href = '/hq/project-detail.html?id=' + created.id;
+        } catch (err) {
+          showToast('Ошибка: ' + err.message, 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Создать';
+        }
+      });
+
+      filterStatus.addEventListener('change', renderProjects);
+      filterSearch.addEventListener('input', renderProjects);
+
+      document.getElementById('btnLogout').addEventListener('click', function () {
+        if (confirm('Выйти из системы?')) window.hqLogout();
+      });
+
+      // Часы
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      tickClock(); setInterval(tickClock, 30000);
+
+      // Init
+      loadOverview();
+      loadProjects();
+      loadFormOptions();
+      var npOwner = document.getElementById('np-owner-type');
+      if (npOwner) npOwner.addEventListener('change', togglePercentField);
+      var npBudget = document.getElementById('np-budget');
+      if (npBudget) npBudget.addEventListener('input', recalcProjectAmount);
+      var npPct = document.getElementById('np-percent');
+      if (npPct) npPct.addEventListener('input', recalcProjectAmount);
+    })();
+  </script>
+</body>
+</html>

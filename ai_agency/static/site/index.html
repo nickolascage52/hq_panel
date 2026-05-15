@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI команда — AI Delivery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --card: #111827;
+      --cyan: #00d4ff;
+      --purple: #7c3aed;
+      --green: #00ff88;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: rgba(0, 212, 255, 0.2);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    @media (min-width: 640px) {
+      body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
+    }
+
+    /* —— Плавающая панель (те же поверхности, что у карточек) —— */
+    .site-dock {
+      position: fixed;
+      z-index: 50;
+      right: max(1rem, env(safe-area-inset-right, 0px));
+      bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.65rem;
+      pointer-events: none;
+    }
+
+    .site-dock > * {
+      pointer-events: auto;
+    }
+
+    .site-dock-panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      max-width: min(calc(100vw - 2rem), 22rem);
+      padding: 0.65rem 0.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow:
+        0 0 0 1px rgba(0, 212, 255, 0.06),
+        0 12px 40px rgba(0, 0, 0, 0.45),
+        0 0 32px rgba(0, 212, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .site-dock-panel .btn {
+      padding: 0.65rem 1.1rem;
+      font-size: 0.875rem;
+      border-radius: 10px;
+    }
+
+    .dock-scroll-top {
+      width: 2.75rem;
+      height: 2.75rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--cyan);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      line-height: 1;
+      box-shadow:
+        0 0 24px rgba(0, 212, 255, 0.15),
+        0 8px 24px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background 0.2s;
+    }
+
+    .dock-scroll-top:hover {
+      transform: translateY(-2px);
+      border-color: rgba(0, 212, 255, 0.55);
+      box-shadow: 0 0 32px rgba(0, 212, 255, 0.28);
+    }
+
+    .dock-scroll-top:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    .site-dock.is-hidden {
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .site-dock.is-hidden > * {
+      pointer-events: none;
+    }
+
+    .site-dock:not(.is-hidden) {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    h1, h2, h3, .font-display {
+      font-family: "Rajdhani", system-ui, sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    /* —— Hero —— */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 4rem 1.5rem 5rem;
+      overflow: hidden;
+    }
+
+    .hero-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 3.25rem);
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #fff 0%, var(--cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .sub {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--muted);
+      max-width: 36rem;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.5rem 2.5rem;
+      margin-bottom: 2.25rem;
+    }
+
+    .stat-pill {
+      text-align: center;
+    }
+
+    .stat-pill .num {
+      font-family: "Rajdhani", sans-serif;
+      font-size: clamp(2.25rem, 5vw, 3rem);
+      font-weight: 700;
+      color: var(--green);
+      text-shadow: 0 0 24px rgba(0, 255, 136, 0.35);
+      line-height: 1;
+    }
+
+    .stat-pill .lbl {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.9rem 1.75rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--cyan), #0099cc);
+      color: #0a0e1a;
+      box-shadow: 0 0 28px rgba(0, 212, 255, 0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(0, 212, 255, 0.5);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--cyan);
+      border: 2px solid var(--cyan);
+    }
+
+    .btn-outline:hover {
+      background: rgba(0, 212, 255, 0.1);
+      box-shadow: 0 0 24px rgba(0, 212, 255, 0.2);
+    }
+
+    /* —— Sections common —— */
+    section {
+      padding: 4.5rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      text-align: center;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 3rem;
+      max-width: 36rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* —— How it works —— */
+    .steps {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .steps {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+      }
+    }
+
+    .step-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .step-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--cyan);
+      opacity: 0.8;
+    }
+
+    .step-card:hover {
+      border-color: rgba(0, 212, 255, 0.55);
+      box-shadow: 0 0 32px rgba(0, 212, 255, 0.12);
+    }
+
+    .step-num {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: rgba(0, 212, 255, 0.25);
+      line-height: 1;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-card h3 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--cyan);
+    }
+
+    .step-card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .step-card.reveal.visible:nth-child(1) { transition-delay: 0.05s; }
+    .step-card.reveal.visible:nth-child(2) { transition-delay: 0.15s; }
+    .step-card.reveal.visible:nth-child(3) { transition-delay: 0.25s; }
+
+    /* —— Departments —— */
+    .dept-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 640px) {
+      .dept-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (min-width: 1100px) {
+      .dept-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .dept-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      transition: border-color 0.35s, box-shadow 0.35s, transform 0.25s;
+    }
+
+    .dept-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .dept-card:not(.dept-solutions):hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 36px rgba(0, 212, 255, 0.2);
+    }
+
+    .dept-card.dept-solutions:hover {
+      border-color: var(--purple);
+      box-shadow: 0 0 36px rgba(124, 58, 237, 0.28);
+    }
+
+    .dept-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .dept-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .dept-icon.cyan { background: rgba(0, 212, 255, 0.15); }
+    .dept-icon.amber { background: rgba(251, 191, 36, 0.15); }
+    .dept-icon.blue { background: rgba(59, 130, 246, 0.2); }
+    .dept-icon.emerald { background: rgba(16, 185, 129, 0.15); }
+    .dept-icon.indigo { background: rgba(99, 102, 241, 0.2); }
+    .dept-icon.purple { background: rgba(124, 58, 237, 0.25); }
+
+    .dept-card h3 {
+      font-size: 1.15rem;
+      color: #fff;
+      margin-bottom: 0.15rem;
+    }
+
+    .dept-meta {
+      font-size: 0.8rem;
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .dept-card.dept-solutions .dept-meta { color: #c4b5fd; }
+
+    .dept-agents {
+      list-style: none;
+      margin: 0.85rem 0 1rem;
+    }
+
+    .dept-agents li {
+      font-size: 0.9rem;
+      color: var(--text);
+      padding: 0.25rem 0;
+      padding-left: 1rem;
+      position: relative;
+    }
+
+    .dept-agents li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--cyan);
+    }
+
+    .dept-card.dept-solutions .dept-agents li::before { color: var(--purple); }
+
+    .dept-desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* —— Typewriter —— */
+    .typewriter-section {
+      text-align: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .typewriter-box {
+      max-width: 720px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem 1.5rem;
+      min-height: 5.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #typewriter-text {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--green);
+      font-weight: 500;
+      text-align: center;
+    }
+
+    #typewriter-text::after {
+      content: "▍";
+      color: var(--cyan);
+      animation: blink 0.9s step-end infinite;
+      margin-left: 2px;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* —— Metrics row —— */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+      .metrics { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .metric {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.35rem 1rem;
+      text-align: center;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    .metric:hover {
+      border-color: rgba(0, 255, 136, 0.35);
+      box-shadow: 0 0 24px rgba(0, 255, 136, 0.08);
+    }
+
+    .metric .emoji { font-size: 1.75rem; display: block; margin-bottom: 0.5rem; }
+    .metric .line {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--green);
+    }
+
+    /* —— Audience —— */
+    .audience-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 900px) {
+      .audience-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .aud-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      transition: border-color 0.35s, box-shadow 0.35s;
+    }
+
+    .aud-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 28px rgba(0, 212, 255, 0.15);
+    }
+
+    .aud-card h3 {
+      font-size: 1.15rem;
+      color: var(--cyan);
+      margin-bottom: 0.75rem;
+    }
+
+    .aud-card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* —— CTA —— */
+    .cta-section {
+      text-align: center;
+      padding: 5rem 1.5rem;
+    }
+
+    .cta-section h2 {
+      font-size: clamp(1.75rem, 4vw, 2.35rem);
+      margin-bottom: 1.75rem;
+    }
+
+    .cta-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem 3rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header class="hero" id="top">
+    <canvas class="hero-canvas" id="dot-grid" aria-hidden="true"></canvas>
+    <div class="hero-inner">
+      <h1>AI команда для вашего бизнеса</h1>
+      <p class="sub">21 специализированный ИИ-агент работает над задачами вашего агентства 24/7</p>
+      <div class="hero-stats">
+        <div class="stat-pill">
+          <div class="num" id="count-agents">0</div>
+          <div class="lbl">агентов в команде</div>
+        </div>
+        <div class="stat-pill">
+          <div class="num" id="count-depts">0</div>
+          <div class="lbl">отделов</div>
+        </div>
+        <div class="stat-pill">
+          <div class="num" style="font-size: clamp(1.75rem, 4vw, 2.5rem);">24/7</div>
+          <div class="lbl">режим работы</div>
+        </div>
+      </div>
+      <a class="btn btn-primary tg-link" href="https://t.me/" rel="noopener noreferrer" target="_blank">Написать в Telegram</a>
+    </div>
+  </header>
+
+  <section id="how" aria-labelledby="how-title">
+    <h2 id="how-title" class="section-title reveal">Как это работает</h2>
+    <p class="section-sub reveal">Три шага от задачи до результата</p>
+    <div class="steps">
+      <article class="step-card reveal">
+        <div class="step-num">01</div>
+        <h3>Вы ставите задачу</h3>
+        <p>Chief of Staff принимает запрос, уточняет контекст и ставит работу в очередь команды.</p>
+      </article>
+      <article class="step-card reveal">
+        <div class="step-num">02</div>
+        <h3>Агенты работают параллельно</h3>
+        <p>Подключаются нужные отделы и специалисты — контент, аналитика, продукт, сайт, AI Solutions.</p>
+      </article>
+      <article class="step-card reveal">
+        <div class="step-num">03</div>
+        <h3>Результат и отчёт</h3>
+        <p>Получаете готовые материалы, выводы и структурированный отчёт по задаче.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="departments" aria-labelledby="dept-title">
+    <h2 id="dept-title" class="section-title reveal">Отделы и агенты</h2>
+    <p class="section-sub reveal">Шесть направлений — единая координация</p>
+    <div class="dept-grid">
+      <article class="dept-card reveal">
+        <div class="dept-head">
+          <div class="dept-icon cyan" aria-hidden="true">🎯</div>
+          <div>
+            <h3>Управление</h3>
+            <div class="dept-meta">1 агент</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Chief of Staff</li>
+        </ul>
+        <p class="dept-desc">Координирует всю команду, принимает задачи, формирует итоговый отчёт.</p>
+      </article>
+
+      <article class="dept-card reveal">
+        <div class="dept-head">
+          <div class="dept-icon amber" aria-hidden="true">✍️</div>
+          <div>
+            <h3>Контент-отдел</h3>
+            <div class="dept-meta">4 агента</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Контент-директор</li>
+          <li>Telegram-копирайтер</li>
+          <li>VC.ru-автор</li>
+          <li>QA-редактор</li>
+        </ul>
+        <p class="dept-desc">Посты, статьи и вычитка — единый контур качества для каналов агентства.</p>
+      </article>
+
+      <article class="dept-card reveal">
+        <div class="dept-head">
+          <div class="dept-icon blue" aria-hidden="true">🔍</div>
+          <div>
+            <h3>Аналитика</h3>
+            <div class="dept-meta">4 агента</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Руководитель аналитики</li>
+          <li>Рыночный аналитик</li>
+          <li>Аналитик конкурентов</li>
+          <li>Трендовый аналитик</li>
+        </ul>
+        <p class="dept-desc">Рынок, конкуренты и тренды — данные для стратегии и контента.</p>
+      </article>
+
+      <article class="dept-card reveal">
+        <div class="dept-head">
+          <div class="dept-icon emerald" aria-hidden="true">📦</div>
+          <div>
+            <h3>Продукт</h3>
+            <div class="dept-meta">3 агента</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Продакт-менеджер</li>
+          <li>Стратег по офферам</li>
+          <li>Аналитик гипотез</li>
+        </ul>
+        <p class="dept-desc">Офферы, гипотезы и продуктовая логика под рост и конверсию.</p>
+      </article>
+
+      <article class="dept-card reveal">
+        <div class="dept-head">
+          <div class="dept-icon indigo" aria-hidden="true">🌐</div>
+          <div>
+            <h3>Сайт</h3>
+            <div class="dept-meta">3 агента</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Стратег по сайту</li>
+          <li>CRO-аналитик</li>
+          <li>Веб-копирайтер</li>
+        </ul>
+        <p class="dept-desc">Структура, конверсия и тексты посадочных под трафик и лиды.</p>
+      </article>
+
+      <article class="dept-card dept-solutions reveal">
+        <div class="dept-head">
+          <div class="dept-icon purple" aria-hidden="true">🤝</div>
+          <div>
+            <h3>AI Solutions</h3>
+            <div class="dept-meta">Новый отдел · 5 агентов</div>
+          </div>
+        </div>
+        <ul class="dept-agents">
+          <li>Client CEO</li>
+          <li>AI Strategist</li>
+          <li>Crisis Manager</li>
+          <li>Solutions PM</li>
+          <li>KP Writer</li>
+        </ul>
+        <p class="dept-desc">Подбираем ИИ-решения для ваших клиентов. От анализа до готового КП за один запрос.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="typewriter-section reveal" id="examples" aria-labelledby="ex-title">
+    <h2 id="ex-title" class="section-title">Примеры задач</h2>
+    <p class="section-sub">То, что можно поручить команде</p>
+    <div class="typewriter-box">
+      <p id="typewriter-text"></p>
+    </div>
+  </section>
+
+  <section id="metrics" aria-labelledby="met-title">
+    <h2 id="met-title" class="section-title reveal">Цифры и результаты</h2>
+    <p class="section-sub reveal">Скорость и масштаб без найма штата</p>
+    <div class="metrics">
+      <div class="metric reveal"><span class="emoji" aria-hidden="true">⚡</span><span class="line">Ответ за 2 минуты</span></div>
+      <div class="metric reveal"><span class="emoji" aria-hidden="true">🤖</span><span class="line">21 агент в команде</span></div>
+      <div class="metric reveal"><span class="emoji" aria-hidden="true">📊</span><span class="line">6 отделов</span></div>
+      <div class="metric reveal"><span class="emoji" aria-hidden="true">🔄</span><span class="line">Работает 24/7</span></div>
+    </div>
+  </section>
+
+  <section id="audience" aria-labelledby="aud-title">
+    <h2 id="aud-title" class="section-title reveal">Для кого</h2>
+    <p class="section-sub reveal">Три типичных сценария</p>
+    <div class="audience-grid">
+      <article class="aud-card reveal">
+        <h3>Владельцы агентств</h3>
+        <p>Автоматизируйте контент, аналитику и работу с клиентами. Команда делает за вас.</p>
+      </article>
+      <article class="aud-card reveal">
+        <h3>Для ваших клиентов</h3>
+        <p>Получите полный анализ бизнеса клиента и готовое КП за один запрос в Telegram.</p>
+      </article>
+      <article class="aud-card reveal">
+        <h3>Контент-маркетинг</h3>
+        <p>Посты, статьи, аудит сайта — всё через одну команду без найма сотрудников.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cta-section reveal" id="cta" aria-labelledby="cta-title">
+    <h2 id="cta-title">Начните прямо сейчас</h2>
+    <div class="cta-btns">
+      <a class="btn btn-primary tg-link" href="https://t.me/" rel="noopener noreferrer" target="_blank">Написать в Telegram</a>
+      <a class="btn btn-outline" href="/hq/">HQ — дашборд и AI-команда</a>
+    </div>
+  </section>
+
+  <footer>
+    <p>AI Delivery · AI Growth команда</p>
+  </footer>
+
+  <div class="site-dock is-hidden" id="site-dock" aria-label="Быстрые действия">
+    <button type="button" class="dock-scroll-top" id="dock-scroll-top" aria-label="Наверх">↑</button>
+    <div class="site-dock-panel">
+      <a class="btn btn-primary tg-link" href="https://t.me/" rel="noopener noreferrer" target="_blank">Написать в Telegram</a>
+      <a class="btn btn-outline" href="/hq/">HQ</a>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      /* Замените на ссылку вашего бота: https://t.me/username */
+      var TELEGRAM_BOT_URL = "https://t.me/";
+      document.querySelectorAll(".tg-link").forEach(function (a) {
+        a.href = TELEGRAM_BOT_URL;
+      });
+
+      /* Плавающая панель: показ после скролла, наверх */
+      var dock = document.getElementById("site-dock");
+      var dockTop = document.getElementById("dock-scroll-top");
+      var scrollShowThreshold = 320;
+      function updateDockVisibility() {
+        if (!dock) return;
+        if (window.scrollY > scrollShowThreshold) {
+          dock.classList.remove("is-hidden");
+        } else {
+          dock.classList.add("is-hidden");
+        }
+      }
+      window.addEventListener("scroll", updateDockVisibility, { passive: true });
+      updateDockVisibility();
+      if (dockTop) {
+        dockTop.addEventListener("click", function () {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+
+      /* Анимированная сетка точек */
+      var canvas = document.getElementById("dot-grid");
+      if (!canvas) return;
+      var ctx = canvas.getContext("2d");
+      var w, h, dpr, t = 0;
+      var spacing = 36;
+      var dots = [];
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        w = canvas.clientWidth;
+        h = canvas.clientHeight;
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        dots = [];
+        for (var x = 0; x < w + spacing; x += spacing) {
+          for (var y = 0; y < h + spacing; y += spacing) {
+            dots.push({ x: x, y: y, ox: x, oy: y, ph: Math.random() * Math.PI * 2 });
+          }
+        }
+      }
+
+      function draw() {
+        t += 0.012;
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = "rgba(0, 212, 255, 0.22)";
+        for (var i = 0; i < dots.length; i++) {
+          var d = dots[i];
+          var dx = Math.sin(t + d.ph) * 1.2 + Math.cos(t * 0.7 + d.ph * 0.5) * 0.6;
+          var dy = Math.cos(t * 0.8 + d.ph) * 1.2;
+          var px = d.ox + dx;
+          var py = d.oy + dy;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+
+      window.addEventListener("resize", resize);
+      resize();
+      draw();
+
+      /* Счётчики в hero */
+      function animateValue(el, end, duration) {
+        var start = 0;
+        var startTime = null;
+        function step(ts) {
+          if (!startTime) startTime = ts;
+          var p = Math.min((ts - startTime) / duration, 1);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(start + (end - start) * eased);
+          if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+      }
+
+      var heroObs = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) {
+              animateValue(document.getElementById("count-agents"), 21, 1400);
+              animateValue(document.getElementById("count-depts"), 6, 1200);
+              heroObs.disconnect();
+            }
+          });
+        },
+        { threshold: 0.3 }
+      );
+      heroObs.observe(document.querySelector(".hero"));
+
+      /* Intersection Observer — секции */
+      var revealEls = document.querySelectorAll(".reveal");
+      var revObs = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+            }
+          });
+        },
+        { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+      );
+      revealEls.forEach(function (el) {
+        revObs.observe(el);
+      });
+
+      /* Typewriter */
+      var phrases = [
+        "Напиши пост в Telegram про автоматизацию продаж",
+        "Проанализируй конкурента и найди наши преимущества",
+        "Разработай КП для розничного магазина одежды",
+        "Сделай аудит главной страницы сайта",
+        "Придумай 5 гипотез для роста конверсии",
+        "Подбери ИИ-решение для автоматизации склада",
+        "Напиши статью для VC.ru про тренды в ИИ"
+      ];
+      var twEl = document.getElementById("typewriter-text");
+      var phraseIndex = 0;
+      var charIndex = 0;
+      var deleting = false;
+      var lastTick = 0;
+      var TYPE_MS = 42;
+      var DELETE_MS = 28;
+      var PAUSE_AFTER_TYPE = 3000;
+      var PAUSE_AFTER_DELETE = 400;
+
+      function typewriterLoop(now) {
+        if (!twEl) return;
+        var phrase = phrases[phraseIndex];
+        if (!deleting) {
+          if (charIndex < phrase.length) {
+            if (now - lastTick > TYPE_MS) {
+              charIndex++;
+              twEl.textContent = phrase.slice(0, charIndex);
+              lastTick = now;
+            }
+          } else {
+            if (now - lastTick > PAUSE_AFTER_TYPE) {
+              deleting = true;
+              lastTick = now;
+            }
+          }
+        } else {
+          if (charIndex > 0) {
+            if (now - lastTick > DELETE_MS) {
+              charIndex--;
+              twEl.textContent = phrase.slice(0, charIndex);
+              lastTick = now;
+            }
+          } else {
+            if (now - lastTick > PAUSE_AFTER_DELETE) {
+              deleting = false;
+              phraseIndex = (phraseIndex + 1) % phrases.length;
+              lastTick = now;
+            }
+          }
+        }
+        requestAnimationFrame(typewriterLoop);
+      }
+      requestAnimationFrame(typewriterLoop);
+    })();
+  </script>
+</body>
+</html>

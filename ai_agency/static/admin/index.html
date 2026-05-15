@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Delivery — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-deep:#070a12;
+  --bg-primary:#0b0f1a;
+  --bg-elevated:#111827;
+  --bg-card:rgba(17,24,39,.72);
+  --bg-card-solid:#131a2a;
+  --bg-card-hover:#1a2336;
+  --bg-input:#0d1324;
+  --border:rgba(148,163,184,.14);
+  --border-glow:rgba(124,58,237,.4);
+  --border-strong:rgba(124,58,237,.35);
+  --accent:#22d3ee;
+  --accent-dim:rgba(34,211,238,.12);
+  --accent-glow:rgba(34,211,238,.28);
+  --purple:#a78bfa;
+  --purple-deep:#7c3aed;
+  --purple-dim:rgba(167,139,250,.12);
+  --green:#34d399;
+  --green-dim:rgba(52,211,153,.12);
+  --red:#f87171;
+  --red-dim:rgba(248,113,113,.12);
+  --yellow:#fbbf24;
+  --yellow-dim:rgba(251,191,36,.12);
+  --text-primary:#f1f5f9;
+  --text-secondary:#94a3b8;
+  --text-dim:#64748b;
+  --radius:12px;
+  --radius-sm:8px;
+  --radius-lg:16px;
+  --shadow-card:0 4px 24px rgba(0,0,0,.35);
+  --shadow-glow:0 0 40px rgba(124,58,237,.08);
+  --font-ui:'Plus Jakarta Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --font-head:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+html{font-size:15px;scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+body{
+  font-family:var(--font-ui);
+  color:var(--text-primary);
+  min-height:100vh;
+  overflow-x:hidden;
+  background:var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(124,58,237,.18), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34,211,238,.08), transparent 50%);
+  background-attachment:fixed;
+}
+body.no-scroll{overflow:hidden}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--bg-deep)}
+::-webkit-scrollbar-thumb{background:rgba(100,116,139,.35);border-radius:8px}
+::-webkit-scrollbar-thumb:hover{background:var(--purple-deep)}
+
+/* ── Utility ── */
+.hidden{display:none!important}
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══════════════════════════
+   AUTH OVERLAY
+   ═══════════════════════════ */
+#auth-overlay{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg-deep);
+  background-image:radial-gradient(ellipse 80% 60% at 50% 20%, rgba(124,58,237,.2), transparent);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:1.25rem;padding:1.5rem;
+}
+#auth-overlay .auth-title{
+  font-family:var(--font-head);font-size:1.75rem;font-weight:700;
+  letter-spacing:-0.02em;color:var(--text-primary);
+}
+#auth-overlay .auth-title span{
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+#auth-overlay .auth-sub{color:var(--text-secondary);font-size:.9rem;max-width:280px;text-align:center;line-height:1.5}
+#auth-overlay input{
+  width:100%;max-width:340px;padding:14px 16px;
+  background:var(--bg-input);border:1px solid var(--border);
+  color:var(--text-primary);font-family:var(--font-ui);font-size:1rem;
+  border-radius:var(--radius);outline:none;transition:border .2s, box-shadow .2s;
+}
+#auth-overlay input:focus{
+  border-color:var(--purple-deep);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+#auth-overlay .auth-btn{
+  width:100%;max-width:340px;padding:14px 20px;cursor:pointer;
+  background:linear-gradient(135deg,var(--purple-deep),#5b21b6);
+  border:none;color:#fff;font-family:var(--font-head);
+  font-size:1rem;font-weight:600;letter-spacing:0;
+  border-radius:var(--radius);transition:transform .2s, box-shadow .2s;
+}
+#auth-overlay .auth-btn:hover{
+  box-shadow:0 8px 32px rgba(124,58,237,.35);
+  transform:translateY(-1px);
+}
+#auth-overlay .auth-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+#auth-overlay .auth-error{color:var(--red);font-size:.85rem;min-height:1.2em;text-align:center}
+
+/* ═══════════════════════════
+   HEADER
+   ═══════════════════════════ */
+#header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  min-height:60px;
+  background:rgba(7,10,18,.85);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px 16px;
+  padding:10px 22px;
+}
+#header .brand{display:flex;flex-direction:column;gap:2px}
+#header .logo{
+  font-family:var(--font-head);font-weight:700;font-size:1.15rem;
+  letter-spacing:-0.02em;color:var(--text-primary);
+}
+#header .logo span{
+  background:linear-gradient(90deg,var(--accent),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+#header .tagline{font-size:.72rem;color:var(--text-dim);font-weight:500}
+#header-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#header-nav a{
+  padding:8px 14px;font-size:.8rem;font-weight:600;color:var(--text-secondary);
+  text-decoration:none;border-radius:999px;border:1px solid transparent;
+  transition:color .2s, background .2s, border-color .2s;
+}
+#header-nav a:hover{color:var(--text-primary);background:rgba(148,163,184,.08)}
+#header-nav a.active{
+  color:var(--accent);
+  background:var(--accent-dim);
+  border-color:rgba(34,211,238,.25);
+}
+#header .status-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status-indicator{
+  display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-secondary);
+  padding:6px 12px;background:rgba(148,163,184,.08);border-radius:999px;border:1px solid var(--border);
+}
+.status-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 10px rgba(52,211,153,.5);
+  animation:pulse 2s infinite;
+}
+.status-dot.offline{background:var(--red);box-shadow:0 0 8px rgba(248,113,113,.5);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.btn-new-task{
+  padding:10px 18px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(124,58,237,.2));
+  border:1px solid rgba(34,211,238,.35);
+  color:var(--text-primary);font-family:var(--font-head);font-weight:600;
+  font-size:.85rem;letter-spacing:0;border-radius:999px;transition:all .2s;
+}
+.btn-new-task:hover{
+  border-color:var(--accent);
+  box-shadow:0 4px 20px var(--accent-glow);
+  transform:translateY(-1px);
+}
+.btn-new-task:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ═══════════════════════════
+   MAIN LAYOUT
+   ═══════════════════════════ */
+#app{
+  padding:84px 24px 32px;
+  max-width:1580px;margin:0 auto;
+}
+.main-grid{
+  display:grid;
+  grid-template-columns:minmax(360px,1fr) minmax(480px,1.35fr);
+  gap:22px;margin-bottom:24px;
+}
+@media(max-width:1024px){
+  .main-grid{grid-template-columns:1fr}
+}
+
+/* ── Cards ── */
+.card{
+  background:var(--bg-card);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+  transition:border-color .25s, box-shadow .25s;
+  box-shadow:var(--shadow-card);
+}
+.card:hover{
+  border-color:rgba(167,139,250,.22);
+  box-shadow:var(--shadow-card), var(--shadow-glow);
+}
+.card-header{
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  font-family:var(--font-head);font-weight:600;font-size:.9rem;
+  letter-spacing:0;text-transform:none;
+  color:var(--text-primary);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.card-header span:first-child{color:var(--accent)}
+.card-body{padding:20px}
+
+/* ═══════════════════════════
+   COMMAND BLOCK
+   ═══════════════════════════ */
+.command-textarea{
+  width:100%;min-height:120px;padding:16px;resize:vertical;
+  background:var(--bg-input);border:1px solid var(--border);
+  color:var(--text-primary);font-family:var(--font-ui);font-size:.9rem;
+  line-height:1.65;border-radius:var(--radius);outline:none;transition:border .2s, box-shadow .2s;
+}
+.command-textarea:focus{
+  border-color:var(--purple-deep);
+  box-shadow:0 0 0 3px var(--purple-dim);
+}
+.command-textarea::placeholder{color:var(--text-dim)}
+.command-examples{margin:14px 0;display:flex;flex-wrap:wrap;gap:8px}
+.cmd-example{
+  padding:7px 12px;cursor:pointer;
+  background:rgba(148,163,184,.08);border:1px solid var(--border);
+  color:var(--text-secondary);font-size:.75rem;border-radius:999px;
+  transition:all .2s;white-space:nowrap;font-weight:500;
+}
+.cmd-example:hover{
+  background:var(--accent-dim);
+  border-color:rgba(34,211,238,.35);
+  color:var(--accent);
+}
+.btn-execute{
+  width:100%;margin-top:16px;padding:15px 20px;cursor:pointer;
+  background:linear-gradient(135deg,var(--purple-deep),#5b21b6);
+  border:1px solid rgba(167,139,250,.4);
+  color:#fff;font-family:var(--font-head);font-weight:600;
+  font-size:.95rem;letter-spacing:0;text-transform:none;
+  border-radius:var(--radius);transition:all .25s;
+  position:relative;overflow:hidden;
+}
+.btn-execute:hover{
+  box-shadow:0 8px 28px rgba(124,58,237,.35);
+  transform:translateY(-1px);
+}
+.btn-execute:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-execute::after{
+  content:'';position:absolute;top:0;left:-100%;
+  width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,212,255,.1),transparent);
+  transition:left .6s;
+}
+.btn-execute:hover::after{left:100%}
+
+/* ═══════════════════════════
+   METRICS
+   ═══════════════════════════ */
+.metrics-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+.metric-card{
+  padding:16px 12px;
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius);text-align:center;
+  transition:border-color .25s, background .25s;
+}
+.metric-card:hover{border-color:rgba(167,139,250,.3);background:var(--bg-card-hover)}
+.metric-value{
+  font-family:var(--font-head);font-size:1.85rem;font-weight:700;
+  color:var(--accent);line-height:1;letter-spacing:-0.02em;
+}
+.metric-value.purple{color:var(--purple)}
+.metric-value.green{color:var(--green)}
+.metric-value.yellow{color:var(--yellow)}
+.metric-label{
+  font-size:.72rem;color:var(--text-secondary);
+  margin-top:8px;letter-spacing:0.02em;text-transform:none;font-weight:500;
+}
+
+/* ═══════════════════════════
+   EXECUTION PANEL
+   ═══════════════════════════ */
+.execution-panel{min-height:400px}
+.right-view-tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.view-tab{
+  padding:6px 14px;cursor:pointer;border:none;border-radius:999px;
+  font-family:var(--font-head);font-weight:600;font-size:.78rem;
+  color:var(--text-secondary);background:rgba(148,163,184,.08);
+  border:1px solid transparent;transition:all .2s;
+}
+.view-tab:hover{color:var(--text-primary);border-color:var(--border)}
+.view-tab.active{color:var(--accent);background:var(--accent-dim);border-color:rgba(34,211,238,.25)}
+.view-tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.right-view-pane{display:block}
+.right-view-pane.hidden{display:none!important}
+.exec-panel-title{font-family:var(--font-head);font-weight:600;font-size:.88rem;color:var(--text-primary)}
+.chat-layout{
+  display:grid;grid-template-columns:minmax(200px,240px) 1fr;gap:16px;
+  min-height:400px;max-height:min(68vh,640px);
+}
+@media(max-width:900px){
+  .chat-layout{grid-template-columns:1fr;max-height:none}
+  .admin-agents{max-height:200px}
+}
+.admin-agents{
+  background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px;overflow:auto;font-size:.78rem;
+}
+.admin-agents .chat-dept{
+  font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  padding:8px 6px 4px;font-weight:600;
+}
+.admin-agents .agent-pick{
+  padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;color:var(--muted);
+  margin-bottom:4px;border:1px solid transparent;transition:.2s;
+}
+.admin-agents .agent-pick:hover{border-color:var(--border);color:var(--text-primary)}
+.admin-agents .agent-pick.on{
+  background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.35);color:var(--accent);
+}
+.chat-main{
+  display:flex;flex-direction:column;min-width:0;background:var(--bg-input);
+  border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;min-height:320px;
+}
+.admin-chat-head{
+  padding:12px 14px;border-bottom:1px solid var(--border);
+  font-weight:600;font-size:.88rem;
+}
+.admin-chat-head small{display:block;font-weight:400;color:var(--muted);font-size:.74rem;margin-top:4px}
+.admin-msgs{
+  flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-height:180px;
+}
+.bubble-ad{
+  max-width:90%;padding:10px 14px;border-radius:var(--radius);
+  font-size:.84rem;line-height:1.5;white-space:pre-wrap;word-break:break-word;
+}
+.bubble-ad.user{
+  align-self:flex-end;
+  background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(124,58,237,.15));
+  border:1px solid var(--border);
+}
+.bubble-ad.ai{align-self:flex-start;background:var(--bg-card-solid);border:1px solid var(--border)}
+.admin-typing{display:none;font-size:.78rem;color:var(--muted);padding:0 14px 6px;font-style:italic}
+.admin-input-row{
+  padding:12px 14px;border-top:1px solid var(--border);
+  display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;
+}
+.admin-input-row textarea{
+  flex:1;min-width:200px;min-height:72px;max-height:220px;
+  padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);
+  background:var(--bg-deep);color:var(--text-primary);font-family:var(--font-ui);font-size:.84rem;resize:vertical;
+}
+.admin-input-row textarea:focus{outline:none;border-color:var(--purple-deep);box-shadow:0 0 0 2px var(--purple-dim)}
+.admin-chat-bar{display:flex;flex-direction:column;gap:6px}
+.chat-hint{font-size:.72rem;color:var(--text-dim);padding:0 14px 10px}
+.btn-chat-secondary{
+  padding:8px 12px;cursor:pointer;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:transparent;color:var(--accent);
+  font-family:var(--font-head);font-weight:600;font-size:.78rem;transition:.2s;
+}
+.btn-chat-secondary:hover{background:var(--accent-dim)}
+.exec-empty{
+  display:flex;align-items:center;justify-content:center;
+  height:300px;color:var(--text-dim);font-size:.9rem;
+  flex-direction:column;gap:12px;
+}
+.exec-empty .icon{font-size:3rem;opacity:.3}
+
+/* Agent chain */
+.agent-chain{display:flex;flex-direction:column;gap:0;margin-bottom:20px}
+.chain-step{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:12px 14px;
+  border-left:2px solid var(--border);
+  position:relative;
+  animation:stepIn .4s ease both;
+}
+.chain-step::before{
+  content:'';position:absolute;left:-6px;top:16px;
+  width:10px;height:10px;border-radius:50%;
+  background:var(--border);border:2px solid var(--bg-elevated);
+  z-index:1;transition:all .3s;
+}
+.chain-step.running{border-left-color:var(--accent)}
+.chain-step.running::before{background:var(--accent);box-shadow:0 0 10px var(--accent-glow)}
+.chain-step.done{border-left-color:var(--green)}
+.chain-step.done::before{background:var(--green);box-shadow:0 0 8px rgba(16,185,129,.4)}
+.chain-step.error{border-left-color:var(--red)}
+.chain-step.error::before{background:var(--red)}
+
+@keyframes stepIn{
+  from{opacity:0;transform:translateX(-12px)}
+  to{opacity:1;transform:translateX(0)}
+}
+
+.step-info{flex:1;min-width:0}
+.step-agent{
+  font-family:var(--font-head);font-weight:600;font-size:.92rem;
+  color:var(--text-primary);letter-spacing:0;
+}
+.step-role{font-size:.74rem;color:var(--text-secondary);margin-top:3px}
+.step-message{
+  font-size:.82rem;color:var(--text-dim);margin-top:8px;
+  line-height:1.5;
+  max-height:60px;overflow:hidden;
+  transition:max-height .3s;
+}
+.step-message.expanded{max-height:none}
+.step-status{
+  font-size:.7rem;padding:3px 8px;
+  border-radius:var(--radius-sm);white-space:nowrap;
+  font-weight:500;letter-spacing:1px;text-transform:uppercase;
+}
+.step-status.running{background:var(--accent-dim);color:var(--accent)}
+.step-status.done{background:var(--green-dim);color:var(--green)}
+.step-status.error{background:var(--red-dim);color:var(--red)}
+
+.typing-dots{display:inline-flex;gap:3px;margin-left:6px}
+.typing-dots span{
+  width:4px;height:4px;border-radius:50%;background:var(--accent);
+  animation:typing 1.2s infinite;
+}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,60%,100%{opacity:.2;transform:scale(.8)}30%{opacity:1;transform:scale(1.2)}}
+
+/* Final report */
+.final-report{
+  padding:20px;
+  background:var(--bg-input);
+  border:1px solid rgba(52,211,153,.35);
+  border-radius:var(--radius);
+  margin-top:18px;
+  animation:fadeIn .5s ease;
+  position:relative;
+}
+.final-report::before{
+  content:'Итоговый отчёт';
+  position:absolute;top:-11px;left:16px;
+  padding:2px 10px;
+  background:var(--bg-elevated);
+  font-family:var(--font-head);font-size:.72rem;font-weight:600;
+  color:var(--green);letter-spacing:0;
+  border-radius:6px;
+  border:1px solid rgba(52,211,153,.25);
+}
+.report-text{
+  font-size:.88rem;line-height:1.7;
+  color:var(--text-primary);
+  white-space:pre-wrap;word-break:break-word;
+  max-height:400px;overflow-y:auto;
+  font-family:var(--font-ui);
+}
+.report-actions{
+  display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;
+}
+.report-btn{
+  padding:9px 16px;cursor:pointer;
+  font-family:var(--font-head);font-weight:600;font-size:.82rem;
+  letter-spacing:0;text-transform:none;
+  border-radius:var(--radius-sm);border:1px solid;transition:all .2s;
+}
+.report-btn.publish{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.report-btn.publish:hover{background:rgba(16,185,129,.25);box-shadow:0 0 12px rgba(16,185,129,.3)}
+.report-btn.copy{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.report-btn.copy:hover{background:rgba(0,212,255,.2)}
+.report-btn.save{background:var(--purple-dim);border-color:var(--purple);color:var(--purple)}
+.report-btn.save:hover{background:rgba(124,58,237,.2)}
+
+/* ═══════════════════════════
+   BOTTOM TABS
+   ═══════════════════════════ */
+.tabs-wrapper{margin-top:20px}
+.tabs-nav{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.tab-btn{
+  padding:12px 20px;cursor:pointer;
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-secondary);font-family:var(--font-head);font-weight:600;
+  font-size:.88rem;letter-spacing:0;text-transform:none;
+  transition:all .2s;border-radius:var(--radius-sm) var(--radius-sm) 0 0;
+}
+.tab-btn:hover{color:var(--text-primary);background:rgba(148,163,184,.06)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(34,211,238,.06)}
+.tab-content{
+  background:var(--bg-card);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--border);border-top:none;
+  border-radius:0 0 var(--radius-lg) var(--radius-lg);padding:20px;min-height:200px;
+}
+.tab-pane{display:none}
+.tab-pane.active{display:block;animation:fadeIn .3s ease}
+
+/* Tasks table */
+.data-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.data-table th{
+  text-align:left;padding:12px 14px;
+  font-family:var(--font-head);font-weight:600;
+  color:var(--text-secondary);letter-spacing:0;text-transform:none;
+  border-bottom:1px solid var(--border);font-size:.78rem;
+}
+.data-table td{
+  padding:12px 14px;border-bottom:1px solid var(--border);
+  color:var(--text-primary);vertical-align:top;font-size:.85rem;
+}
+.data-table tr:hover td{background:var(--bg-card-hover)}
+.data-table .msg-cell{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-badge{
+  display:inline-block;padding:2px 8px;font-size:.7rem;
+  border-radius:var(--radius-sm);font-weight:500;letter-spacing:1px;text-transform:uppercase;
+}
+.status-badge.done{background:var(--green-dim);color:var(--green)}
+.status-badge.running{background:var(--accent-dim);color:var(--accent)}
+.status-badge.pending{background:var(--yellow-dim);color:var(--yellow)}
+.status-badge.error{background:var(--red-dim);color:var(--red)}
+.status-badge.draft{background:var(--purple-dim);color:var(--purple)}
+.status-badge.approved{background:var(--green-dim);color:var(--green)}
+.status-badge.published{background:var(--accent-dim);color:var(--accent)}
+.status-badge.rejected{background:var(--red-dim);color:var(--red)}
+.btn-sm{
+  padding:4px 10px;cursor:pointer;
+  background:transparent;border:1px solid var(--border);
+  color:var(--text-secondary);font-family:var(--font-mono);font-size:.7rem;
+  border-radius:var(--radius-sm);transition:all .2s;
+}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm.green{border-color:var(--green);color:var(--green)}
+.btn-sm.green:hover{background:var(--green-dim)}
+.btn-sm.accent{border-color:var(--accent);color:var(--accent)}
+.btn-sm.accent:hover{background:var(--accent-dim)}
+
+/* Content cards */
+.content-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.content-card{
+  padding:16px;background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);transition:border-color .3s;
+}
+.content-card:hover{border-color:var(--border-glow)}
+.content-channel{
+  font-family:var(--font-head);font-size:.85rem;font-weight:600;
+  color:var(--purple);letter-spacing:1px;text-transform:uppercase;
+  margin-bottom:6px;
+}
+.content-topic{font-size:.8rem;color:var(--text-primary);margin-bottom:8px;line-height:1.4}
+.content-body-preview{
+  font-size:.75rem;color:var(--text-dim);line-height:1.5;
+  max-height:60px;overflow:hidden;margin-bottom:10px;
+}
+.content-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Backlog */
+.backlog-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  transition:background .2s;
+}
+.backlog-item:hover{background:var(--bg-card-hover)}
+.backlog-priority{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-head);font-weight:700;font-size:.8rem;
+  border-radius:var(--radius-sm);
+}
+.backlog-priority.p1{background:var(--red-dim);color:var(--red)}
+.backlog-priority.p2{background:var(--yellow-dim);color:var(--yellow)}
+.backlog-priority.p3{background:var(--accent-dim);color:var(--accent)}
+.backlog-title{flex:1;font-size:.85rem;color:var(--text-primary)}
+.backlog-agent{font-size:.7rem;color:var(--text-secondary)}
+
+/* ═══════════════════════════
+   MODAL
+   ═══════════════════════════ */
+.modal-backdrop{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(10,14,26,.85);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;
+}
+.modal{
+  width:90%;max-width:600px;
+  background:var(--bg-card-solid);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:0 24px 48px rgba(0,0,0,.5);
+  animation:modalIn .3s ease;
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal .card-header{cursor:default}
+.modal .card-header .close-btn{
+  cursor:pointer;background:none;border:none;
+  color:var(--text-secondary);font-size:1.2rem;
+  transition:color .2s;
+}
+.modal .card-header .close-btn:hover{color:var(--red)}
+.modal-body{padding:20px;max-height:70vh;overflow-y:auto}
+
+/* ═══════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════ */
+#toast-container{
+  position:fixed;top:70px;right:24px;z-index:300;
+  display:flex;flex-direction:column;gap:8px;
+}
+.toast{
+  padding:14px 18px;min-width:280px;
+  background:var(--bg-card-solid);border:1px solid var(--border);
+  border-left:4px solid var(--accent);border-radius:var(--radius);
+  font-size:.85rem;color:var(--text-primary);
+  animation:toastIn .3s ease;
+  box-shadow:0 8px 32px rgba(0,0,0,.45);
+}
+.toast.success{border-left-color:var(--green)}
+.toast.error{border-left-color:var(--red)}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+
+/* лёгкая зернистость вместо scan lines — без отвлечения */
+body::after{
+  content:'';position:fixed;inset:0;z-index:9998;
+  pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  #header{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:center;
+    gap:10px 12px;
+    padding:10px 14px;
+  }
+  #header .logo{font-size:1rem}
+  #header-nav{grid-column:1/-1;flex-wrap:wrap}
+  #app{padding:88px 12px 20px}
+  .main-grid{grid-template-columns:1fr;gap:14px}
+  .metrics-grid{grid-template-columns:1fr 1fr}
+  .tabs-nav{overflow-x:auto;flex-wrap:nowrap}
+  .tab-btn{padding:10px 14px;font-size:.8rem;white-space:nowrap}
+  .content-grid{grid-template-columns:1fr}
+}
+
+/* ═══════════════════════════
+   AGENCY CONTEXT BLOCK
+   ═══════════════════════════ */
+.ctx-block{
+  margin-bottom:20px;
+  border-top:1px solid rgba(0,212,255,.15);
+  border-bottom:1px solid rgba(0,212,255,.15);
+}
+.ctx-status{display:flex;align-items:center;gap:6px;font-size:.75rem}
+.ctx-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ctx-dot.loaded{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,.4)}
+.ctx-dot.default{background:var(--yellow);box-shadow:0 0 6px rgba(245,158,11,.4)}
+.ctx-preview{
+  background:var(--bg-input);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 12px;margin:10px 0;
+  font-size:.72rem;line-height:1.5;color:var(--text-dim);
+  max-height:60px;overflow:hidden;
+  font-family:var(--font-mono);white-space:pre-wrap;word-break:break-word;
+}
+.ctx-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ctx-file-info{
+  font-size:.72rem;color:var(--text-secondary);
+  padding:4px 0;
+}
+.ctx-upload-btn{
+  padding:6px 14px;cursor:pointer;
+  background:transparent;border:1px solid var(--accent);
+  color:var(--accent);font-family:var(--font-head);font-weight:600;
+  font-size:.8rem;letter-spacing:1px;text-transform:uppercase;
+  border-radius:var(--radius-sm);transition:all .2s;
+}
+.ctx-upload-btn:hover{background:var(--accent-dim);box-shadow:0 0 10px var(--accent-glow)}
+.ctx-upload-btn:disabled{opacity:.4;cursor:not-allowed}
+.ctx-upload-btn.secondary{
+  border-color:var(--border);color:var(--text-secondary);
+  font-size:.75rem;letter-spacing:0;text-transform:none;
+}
+.ctx-upload-btn.secondary:hover{border-color:var(--text-secondary);color:var(--text-primary)}
+.ctx-upload-btn.apply{border-color:var(--green);color:var(--green)}
+.ctx-upload-btn.apply:hover{background:var(--green-dim)}
+.ctx-note{font-size:.65rem;color:var(--text-dim);margin-top:8px;font-style:italic}
+.ctx-progress{
+  height:2px;background:var(--border);border-radius:1px;margin:8px 0;overflow:hidden;
+}
+.ctx-progress-bar{
+  height:100%;width:0;background:var(--accent);
+  transition:width .3s;
+}
+</style>
+</head>
+<body class="no-scroll">
+
+<!-- ═══ AUTH ═══ -->
+<div id="auth-overlay">
+  <div class="auth-title"><span>AI Delivery</span></div>
+  <div class="auth-sub">Command Center — пароль из <code style="font-size:.8em;color:var(--accent)">ADMIN_PASSWORD</code> в .env</div>
+  <input type="password" id="auth-input" placeholder="Пароль администратора" autocomplete="off">
+  <button class="auth-btn" id="auth-btn">Войти</button>
+  <div class="auth-error" id="auth-error"></div>
+</div>
+
+<!-- ═══ TOASTS ═══ -->
+<div id="toast-container"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header id="header">
+  <div class="brand">
+    <div class="logo"><span>AI Delivery</span></div>
+    <div class="tagline">Command Center · пайплайн + чат с агентами</div>
+  </div>
+  <nav id="header-nav" aria-label="Панели">
+    <a href="/hq/">HQ · Дашборд</a>
+    <a href="/admin" class="active">Команда</a>
+  </nav>
+  <div class="status-group">
+    <div class="status-indicator">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">ПОДКЛЮЧЕНИЕ...</span>
+    </div>
+    <button class="btn-new-task" id="btn-header-task">+ Задача</button>
+  </div>
+</header>
+
+<!-- ═══ MAIN APP ═══ -->
+<div id="app" class="hidden">
+
+  <div class="main-grid">
+
+    <!-- ──── LEFT COLUMN ──── -->
+    <div class="left-col">
+
+      <!-- Command input -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <span>&#9655; Задача всей команде</span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:.8rem;color:var(--text-secondary);margin:0 0 12px;line-height:1.5">
+            Один запуск — Chief of Staff раздаёт работу отделам, здесь же справа вкладка <strong style="color:var(--text-primary)">«Чат с агентом»</strong> для точечного диалога.
+          </p>
+          <textarea class="command-textarea" id="task-input"
+            placeholder="Опишите задачу: контент, аналитика, сайт, продукт — координация автоматически"></textarea>
+          <div class="command-examples">
+            <span class="cmd-example" data-cmd="Напиши пост в Telegram про автоматизацию склада">Telegram-пост</span>
+            <span class="cmd-example" data-cmd="Проанализируй конкурентов в нише ИИ-ботов для бизнеса">Конкуренты</span>
+            <span class="cmd-example" data-cmd="Создай статью для VC.ru про ИИ в логистике">VC.ru статья</span>
+            <span class="cmd-example" data-cmd="Сделай аудит главной страницы сайта">Аудит сайта</span>
+            <span class="cmd-example" data-cmd="Придумай новый оффер для услуги ИИ-ботов">Новый оффер</span>
+            <span class="cmd-example" data-cmd="Проанализируй тренды ИИ-автоматизации на 2026 год">Тренды</span>
+          </div>
+          <button class="btn-execute" id="btn-execute" onclick="executeTask()">
+            Запустить пайплайн команды
+          </button>
+        </div>
+      </div>
+
+      <!-- Agency Context -->
+      <div class="card ctx-block">
+        <div class="card-header">
+          <span>&#9998; Контекст агентства</span>
+          <div class="ctx-status" id="ctx-status">
+            <span class="ctx-dot default" id="ctx-dot"></span>
+            <span id="ctx-status-text">загрузка...</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="ctx-preview" id="ctx-preview">Загрузка контекста...</div>
+          <input type="file" id="ctx-file-input" accept=".txt,.md" style="display:none">
+          <div class="ctx-file-info hidden" id="ctx-file-info"></div>
+          <div class="ctx-progress hidden" id="ctx-progress"><div class="ctx-progress-bar" id="ctx-progress-bar"></div></div>
+          <div class="ctx-actions">
+            <button class="ctx-upload-btn" id="ctx-upload-btn" onclick="document.getElementById('ctx-file-input').click()">Загрузить файл</button>
+            <button class="ctx-upload-btn apply hidden" id="ctx-apply-btn" onclick="applyContext()">Применить</button>
+            <button class="ctx-upload-btn secondary" onclick="downloadTemplate()">Скачать шаблон</button>
+          </div>
+          <div class="ctx-note">Все агенты начнут использовать новый файл немедленно</div>
+        </div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="card">
+        <div class="card-header">
+          <span>&#9632; Метрики</span>
+          <span style="font-size:.7rem;color:var(--text-dim)" id="metrics-updated"></span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-value" id="m-content">—</div>
+              <div class="metric-label">Контента создано</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value green" id="m-tasks">—</div>
+              <div class="metric-label">Задач выполнено</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value purple" id="m-agents">16</div>
+              <div class="metric-label">Агентов в команде</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value yellow" id="m-tokens">—</div>
+              <div class="metric-label">Токенов сегодня</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ──── RIGHT COLUMN ──── -->
+    <div class="right-col">
+      <div class="card execution-panel">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;flex:1;min-width:0">
+            <span class="exec-panel-title">&#9881; Команда</span>
+            <div class="right-view-tabs" role="tablist" aria-label="Режим правой панели">
+              <button type="button" class="view-tab active" data-view="pipeline" role="tab" aria-selected="true">Пайплайн</button>
+              <button type="button" class="view-tab" data-view="chat" role="tab" aria-selected="false">Чат с агентом</button>
+            </div>
+          </div>
+          <span id="exec-task-id-wrap" style="font-size:.75rem;color:var(--text-dim);white-space:nowrap"><span id="exec-task-id"></span></span>
+        </div>
+        <div class="card-body" id="exec-body">
+          <div id="view-pipeline" class="right-view-pane">
+            <div class="exec-empty" id="exec-empty">
+              <div class="icon">&#9881;</div>
+              <div>Ожидание пайплайна</div>
+              <div style="font-size:.75rem;color:var(--text-dim);max-width:320px;text-align:center;line-height:1.5">
+                Запустите задачу слева — здесь по шагам пойдут отделы. Нужен один агент? Вкладка «Чат с агентом».
+              </div>
+            </div>
+            <div class="agent-chain hidden" id="agent-chain"></div>
+            <div class="hidden" id="final-report-wrap"></div>
+          </div>
+          <div id="view-chat" class="right-view-pane hidden" aria-hidden="true">
+            <p class="chat-hint">Тот же пароль, что для панели. История чата хранится на сервере.</p>
+            <div class="chat-layout">
+              <aside class="admin-agents" id="adminAgentList" aria-label="Список агентов"></aside>
+              <div class="chat-main">
+                <div class="admin-chat-head" id="adminChatTitle">Выберите агента слева<small>Прямой диалог · Ctrl+Enter — отправить</small></div>
+                <div class="admin-typing" id="adminTyping">Агент отвечает…</div>
+                <div class="admin-msgs" id="adminMsgs"></div>
+                <div class="admin-input-row">
+                  <textarea id="adminChatInp" placeholder="Сообщение выбранному агенту…"></textarea>
+                  <div class="admin-chat-bar">
+                    <button type="button" class="btn-execute" style="margin-top:0;padding:10px 16px;font-size:.85rem;width:auto" id="adminBtnSend">Отправить</button>
+                    <button type="button" class="btn-chat-secondary" id="adminBtnCopy">Копировать ответ</button>
+                    <button type="button" class="btn-chat-secondary" id="adminBtnGotoTask">К полю задачи</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ──── BOTTOM TABS ──── -->
+  <div class="tabs-wrapper">
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="history">История задач</button>
+      <button class="tab-btn" data-tab="content">Контент</button>
+      <button class="tab-btn" data-tab="backlog">Бэклог</button>
+    </div>
+    <div class="tab-content">
+      <div class="tab-pane active" id="tab-history">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Дата</th><th>Команда</th><th>Статус</th>
+              <th>Время</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tasks-tbody"></tbody>
+        </table>
+        <div style="text-align:center;padding:20px;color:var(--text-dim);font-size:.8rem" id="tasks-empty">
+          Задач пока нет
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-content">
+        <div class="content-grid" id="content-grid"></div>
+        <div style="text-align:center;padding:20px;color:var(--text-dim);font-size:.8rem" id="content-empty">
+          Контент пока не создан
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-backlog">
+        <div id="backlog-list">
+          <div style="text-align:center;padding:20px;color:var(--text-dim);font-size:.8rem">
+            Бэклог пуст
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ DETAIL MODAL ═══ -->
+<div class="modal-backdrop hidden" id="detail-modal">
+  <div class="modal">
+    <div class="card-header">
+      <span id="modal-title">Детали</span>
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   AI AGENCY COMMAND CENTER — Frontend Logic
+   ═══════════════════════════════════════════════ */
+
+const API = location.origin;
+let PASSWORD = '';
+let currentTaskId = null;
+let ws = null;
+let metricsInterval = null;
+let tasksInterval = null;
+
+/* ── Auth ── */
+
+(function initAuth() {
+  const saved = sessionStorage.getItem('admin_pw');
+  if (saved) {
+    PASSWORD = saved;
+    checkAuth();
+  }
+
+  document.getElementById('auth-btn').addEventListener('click', doLogin);
+  document.getElementById('auth-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+})();
+
+async function doLogin() {
+  const input = document.getElementById('auth-input');
+  const pw = input.value.trim();
+  if (!pw) { showAuthError('Введи пароль'); return; }
+  PASSWORD = pw;
+  await checkAuth();
+}
+
+async function checkAuth() {
+  try {
+    const res = await apiFetch('/api/status');
+    if (res) {
+      sessionStorage.setItem('admin_pw', PASSWORD);
+      sessionStorage.setItem('hq_admin_password', PASSWORD);
+      document.getElementById('auth-overlay').classList.add('hidden');
+      document.body.classList.remove('no-scroll');
+      document.getElementById('app').classList.remove('hidden');
+      setOnline(true);
+      startPolling();
+      if (location.hash === '#chat') {
+        requestAnimationFrame(() => setRightView('chat'));
+      }
+    }
+  } catch (e) {
+    showAuthError('Неверный пароль или сервер недоступен');
+    PASSWORD = '';
+    sessionStorage.removeItem('admin_pw');
+    sessionStorage.removeItem('hq_admin_password');
+  }
+}
+
+function showAuthError(msg) {
+  document.getElementById('auth-error').textContent = msg;
+}
+
+/* ── API ── */
+
+async function apiFetch(path, opts = {}) {
+  const url = API + path;
+  const headers = { 'Content-Type': 'application/json' };
+  if (PASSWORD) headers['X-Admin-Password'] = PASSWORD;
+  const res = await fetch(url, { ...opts, headers: { ...headers, ...(opts.headers || {}) } });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+/* ── Пайплайн + чат с агентом (одна панель) ── */
+let adminAgents = [], adminChatCurrent = null, adminLastAi = '', adminAgentsLoaded = false;
+
+function adminAuthFetch(path, opts = {}) {
+  const headers = { ...(opts.headers || {}) };
+  if (opts.body && typeof opts.body === 'string') {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
+  if (PASSWORD) headers['X-Admin-Password'] = PASSWORD;
+  return fetch(API + path, { ...opts, headers });
+}
+
+function setRightView(view) {
+  const pipeline = document.getElementById('view-pipeline');
+  const chat = document.getElementById('view-chat');
+  const wrap = document.getElementById('exec-task-id-wrap');
+  if (!pipeline || !chat) return;
+  document.querySelectorAll('.view-tab').forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (view === 'pipeline') {
+    pipeline.classList.remove('hidden');
+    chat.classList.add('hidden');
+    chat.setAttribute('aria-hidden', 'true');
+    if (wrap) wrap.style.visibility = '';
+    if (location.hash === '#chat') {
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    }
+  } else {
+    pipeline.classList.add('hidden');
+    chat.classList.remove('hidden');
+    chat.setAttribute('aria-hidden', 'false');
+    if (wrap) wrap.style.visibility = 'hidden';
+    try { history.replaceState(null, '', '#chat'); } catch (e) {}
+    if (!adminAgentsLoaded) loadAdminAgents();
+  }
+}
+
+async function loadAdminAgents() {
+  const el = document.getElementById('adminAgentList');
+  if (!el) return;
+  try {
+    const r = await adminAuthFetch('/api/status');
+    const j = await r.json();
+    if (!r.ok) return;
+    adminAgents = j.agents || [];
+    const g = {};
+    adminAgents.forEach(a => { (g[a.department] = g[a.department] || []).push(a); });
+    const DEPT_ORDER = ['Управление', 'Операции', 'Контент', 'Аналитика', 'Продукт', 'Сайт', 'AI Solutions'];
+    const DEPT_ICON = { 'Управление': '🎯', 'Контент': '✍️', 'Аналитика': '🔍', 'Продукт': '📦', 'Сайт': '🌐', 'Операции': '👤', 'AI Solutions': '🤝' };
+    el.innerHTML = DEPT_ORDER.filter(d => g[d]).map(d => {
+      const ic = DEPT_ICON[d] || '•';
+      return `<div class="chat-dept">${ic} ${escHtml(d)}</div>` + g[d].map(a =>
+        `<div class="agent-pick" data-name="${escAttr(a.name)}"><strong style="color:var(--text-primary)">${escHtml(a.role)}</strong><div style="font-size:0.72rem;opacity:0.9">${escHtml(a.name)}</div></div>`
+      ).join('');
+    }).join('');
+    el.querySelectorAll('.agent-pick').forEach(x => {
+      x.addEventListener('click', () => selectAdminAgent(x.getAttribute('data-name')));
+    });
+    adminAgentsLoaded = true;
+  } catch (e) { console.error(e); }
+}
+
+async function selectAdminAgent(name) {
+  adminChatCurrent = name;
+  document.querySelectorAll('.agent-pick').forEach(x => {
+    x.classList.toggle('on', x.getAttribute('data-name') === name);
+  });
+  const a = adminAgents.find(x => x.name === name);
+  document.getElementById('adminChatTitle').innerHTML =
+    `${escHtml(a ? a.role : name)}<small>${escHtml(name)}</small>`;
+  document.getElementById('adminMsgs').innerHTML = '';
+  adminLastAi = '';
+  try {
+    const h = await adminAuthFetch('/api/agents/' + encodeURIComponent(name) + '/chat/history');
+    const hj = await h.json();
+    for (const m of (hj.messages || [])) {
+      appendAdminBubble(m.role === 'user' ? 'user' : 'ai', m.content);
+    }
+  } catch (e) {}
+}
+
+function appendAdminBubble(role, text) {
+  const d = document.createElement('div');
+  d.className = 'bubble-ad ' + (role === 'user' ? 'user' : 'ai');
+  d.textContent = text;
+  const box = document.getElementById('adminMsgs');
+  box.appendChild(d);
+  box.scrollTop = 1e9;
+  if (role === 'ai') adminLastAi = text;
+}
+
+async function sendAdminChat() {
+  if (!adminChatCurrent) { toast('Выберите агента слева', 'error'); return; }
+  const inp = document.getElementById('adminChatInp');
+  const t = inp.value.trim();
+  if (!t) return;
+  inp.value = '';
+  appendAdminBubble('user', t);
+  const typing = document.getElementById('adminTyping');
+  typing.style.display = 'block';
+  try {
+    const r = await adminAuthFetch('/api/agents/' + encodeURIComponent(adminChatCurrent) + '/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message: t, context: {} })
+    });
+    const j = await r.json();
+    if (!r.ok) appendAdminBubble('ai', 'Ошибка: ' + (j.detail || JSON.stringify(j)));
+    else appendAdminBubble('ai', j.text || '');
+  } catch (e) {
+    appendAdminBubble('ai', 'Ошибка сети');
+  }
+  typing.style.display = 'none';
+}
+
+function initUnifiedTeamPanel() {
+  document.querySelectorAll('.view-tab').forEach(b => {
+    b.addEventListener('click', () => setRightView(b.dataset.view));
+  });
+  const btnSend = document.getElementById('adminBtnSend');
+  const inp = document.getElementById('adminChatInp');
+  if (btnSend) btnSend.addEventListener('click', sendAdminChat);
+  if (inp) {
+    inp.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); sendAdminChat(); }
+    });
+  }
+  const btnCopy = document.getElementById('adminBtnCopy');
+  if (btnCopy) {
+    btnCopy.addEventListener('click', async () => {
+      if (!adminLastAi) return;
+      try {
+        await navigator.clipboard.writeText(adminLastAi);
+        toast('Скопировано', 'success');
+      } catch (e) { toast('Не удалось скопировать', 'error'); }
+    });
+  }
+  const btnGo = document.getElementById('adminBtnGotoTask');
+  if (btnGo) {
+    btnGo.addEventListener('click', () => {
+      setRightView('pipeline');
+      document.getElementById('task-input').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#chat') setRightView('chat');
+    else setRightView('pipeline');
+  });
+}
+
+initUnifiedTeamPanel();
+
+/* ── Status ── */
+
+function setOnline(ok) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot' + (ok ? '' : ' offline');
+  txt.textContent = ok ? 'ОНЛАЙН' : 'ОФФЛАЙН';
+}
+
+/* ── Polling ── */
+
+function startPolling() {
+  loadMetrics();
+  loadTasks();
+  loadContent();
+  loadContextStatus();
+  metricsInterval = setInterval(loadMetrics, 15000);
+  tasksInterval = setInterval(() => { loadTasks(); loadContent(); }, 30000);
+}
+
+async function loadMetrics() {
+  try {
+    const m = await apiFetch('/api/metrics');
+    animateValue('m-content', m.total_content);
+    animateValue('m-tasks', m.done_tasks);
+    animateValue('m-tokens', m.today_tokens);
+    document.getElementById('metrics-updated').textContent =
+      'обновлено ' + new Date().toLocaleTimeString('ru');
+    setOnline(true);
+  } catch { setOnline(false); }
+}
+
+async function loadTasks() {
+  try {
+    const data = await apiFetch('/api/tasks?limit=20');
+    renderTasks(data.tasks || []);
+  } catch {}
+}
+
+async function loadContent() {
+  try {
+    const data = await apiFetch('/api/content?limit=50');
+    renderContent(data.content || []);
+  } catch {}
+}
+
+/* ── Animate counter ── */
+
+function animateValue(id, target) {
+  const el = document.getElementById(id);
+  const current = parseInt(el.textContent.replace(/\D/g, '')) || 0;
+  if (current === target) { el.textContent = formatNum(target); return; }
+  const diff = target - current;
+  const steps = Math.min(Math.abs(diff), 30);
+  const stepVal = diff / steps;
+  let i = 0;
+  const iv = setInterval(() => {
+    i++;
+    const v = Math.round(current + stepVal * i);
+    el.textContent = formatNum(v);
+    if (i >= steps) { clearInterval(iv); el.textContent = formatNum(target); }
+  }, 30);
+}
+
+function formatNum(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+/* ── Execute task ── */
+
+async function executeTask() {
+  const input = document.getElementById('task-input');
+  const msg = input.value.trim();
+  if (!msg) { toast('Введи задачу', 'error'); return; }
+
+  const btn = document.getElementById('btn-execute');
+  btn.disabled = true;
+  btn.textContent = 'КОМАНДА ОТПРАВЛЕНА...';
+
+  try {
+    const res = await apiFetch('/api/task', {
+      method: 'POST',
+      body: JSON.stringify({ message: msg }),
+    });
+
+    currentTaskId = res.task_id;
+    document.getElementById('exec-task-id').textContent = '#' + res.task_id;
+    toast('Задача #' + res.task_id + ' принята', 'success');
+    setRightView('pipeline');
+    resetExecPanel();
+    connectWS(res.task_id);
+    input.value = '';
+
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Запустить пайплайн команды';
+  }
+}
+
+/* ── Command examples ── */
+
+document.querySelectorAll('.cmd-example').forEach(el => {
+  el.addEventListener('click', () => {
+    document.getElementById('task-input').value = el.dataset.cmd;
+    document.getElementById('task-input').focus();
+  });
+});
+
+/* ── Header button ── */
+
+document.getElementById('btn-header-task').addEventListener('click', () => {
+  document.getElementById('task-input').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+/* ── WebSocket ── */
+
+function connectWS(taskId) {
+  if (ws) { try { ws.close(); } catch {} }
+
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsHost = window.location.host;
+  ws = new WebSocket(`${wsProtocol}//${wsHost}/ws/task/${taskId}`);
+
+  ws.onopen = () => {};
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleWSEvent(data);
+    } catch {}
+  };
+
+  ws.onerror = () => { toast('WebSocket ошибка', 'error'); };
+
+  ws.onclose = () => {
+    setTimeout(() => { loadTasks(); loadContent(); loadMetrics(); }, 2000);
+  };
+}
+
+function handleWSEvent(data) {
+  const chain = document.getElementById('agent-chain');
+  chain.classList.remove('hidden');
+  document.getElementById('exec-empty').classList.add('hidden');
+
+  const stage = data.stage;
+  const agent = data.agent || 'system';
+  const message = data.message || '';
+
+  if (stage === 'done' && agent === 'system') {
+    finishCurrentStep();
+    loadTaskResult(currentTaskId);
+    loadTasks();
+    loadContent();
+    loadMetrics();
+    return;
+  }
+
+  if (stage === 'error') {
+    addChainStep(agent, message, 'error');
+    return;
+  }
+
+  finishCurrentStep();
+  addChainStep(agent, message, 'running');
+}
+
+let stepCounter = 0;
+
+function resetExecPanel() {
+  const chain = document.getElementById('agent-chain');
+  chain.innerHTML = '';
+  chain.classList.add('hidden');
+  document.getElementById('exec-empty').classList.add('hidden');
+  document.getElementById('final-report-wrap').classList.add('hidden');
+  document.getElementById('final-report-wrap').innerHTML = '';
+  stepCounter = 0;
+}
+
+function addChainStep(agent, message, status) {
+  const chain = document.getElementById('agent-chain');
+  stepCounter++;
+  const delay = stepCounter * 80;
+
+  const agentLabels = {
+    'system': 'Система',
+    'chief_of_staff': 'Chief of Staff',
+    'content_director': 'Контент-директор',
+    'research_head': 'Руководитель аналитики',
+    'product_manager': 'Продакт-менеджер',
+    'website_strategist': 'Стратег по сайту',
+    'telegram_writer': 'Telegram-копирайтер',
+    'threads_writer': 'Threads-копирайтер',
+    'vc_writer': 'VC.ru-автор',
+    'qa_editor': 'QA-редактор',
+    'market_analyst': 'Рыночный аналитик',
+    'competitor_analyst': 'Аналитик конкурентов',
+    'trend_analyst': 'Трендовый аналитик',
+    'offer_strategist': 'Стратег по офферам',
+    'hypothesis_analyst': 'Аналитик гипотез',
+    'cro_analyst': 'CRO-аналитик',
+    'web_copywriter': 'Веб-копирайтер',
+    'content': 'Контент-отдел',
+    'research': 'Аналитика',
+    'product': 'Продукт',
+    'website': 'Сайт',
+  };
+
+  const label = agentLabels[agent] || agent;
+
+  const dots = status === 'running'
+    ? '<span class="typing-dots"><span></span><span></span><span></span></span>'
+    : '';
+
+  const step = document.createElement('div');
+  step.className = `chain-step ${status}`;
+  step.id = `step-${stepCounter}`;
+  step.style.animationDelay = `${delay}ms`;
+  step.innerHTML = `
+    <div class="step-info">
+      <div class="step-agent">${label} ${dots}</div>
+      <div class="step-message">${escHtml(message)}</div>
+    </div>
+    <span class="step-status ${status}">${statusLabel(status)}</span>
+  `;
+
+  chain.appendChild(step);
+  step.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function finishCurrentStep() {
+  const steps = document.querySelectorAll('.chain-step.running');
+  steps.forEach(s => {
+    s.classList.remove('running');
+    s.classList.add('done');
+    const st = s.querySelector('.step-status');
+    if (st) { st.className = 'step-status done'; st.textContent = 'ГОТОВО'; }
+    const dots = s.querySelector('.typing-dots');
+    if (dots) dots.remove();
+  });
+}
+
+function statusLabel(s) {
+  return { running: 'РАБОТАЕТ', done: 'ГОТОВО', error: 'ОШИБКА' }[s] || s.toUpperCase();
+}
+
+async function loadTaskResult(taskId) {
+  try {
+    const data = await apiFetch(`/api/task/${taskId}`);
+    const task = data.task;
+    if (task && task.result) {
+      showFinalReport(task.result, data.content || []);
+    }
+  } catch {}
+}
+
+function showFinalReport(text, contentList) {
+  const wrap = document.getElementById('final-report-wrap');
+  wrap.classList.remove('hidden');
+
+  let publishBtns = '';
+  if (contentList.length > 0) {
+    publishBtns = contentList
+      .filter(c => c.status !== 'published')
+      .map(c => `<button class="report-btn publish" onclick="publishContent(${c.id})">&#10003; Опубликовать #${c.id}</button>`)
+      .join('');
+  }
+
+  wrap.innerHTML = `
+    <div class="final-report">
+      <div class="report-text">${escHtml(text)}</div>
+      <div class="report-actions">
+        ${publishBtns}
+        <button class="report-btn copy" onclick="copyReport()">&#9776; Скопировать</button>
+        <button class="report-btn save" onclick="toast('Сохранено','success')">&#9733; Сохранить</button>
+      </div>
+    </div>
+  `;
+  wrap.scrollIntoView({ behavior: 'smooth' });
+}
+
+function copyReport() {
+  const txt = document.querySelector('.report-text');
+  if (!txt) return;
+  navigator.clipboard.writeText(txt.textContent).then(() => {
+    toast('Скопировано в буфер', 'success');
+  });
+}
+
+async function publishContent(id) {
+  try {
+    const res = await apiFetch(`/api/content/${id}/publish`, { method: 'POST' });
+    toast(`Контент #${id}: ${res.status}`, res.status === 'published' ? 'success' : 'error');
+    loadContent();
+  } catch (e) {
+    toast('Ошибка: ' + e.message, 'error');
+  }
+}
+
+/* ── Render tasks table ── */
+
+function renderTasks(tasks) {
+  const tbody = document.getElementById('tasks-tbody');
+  const empty = document.getElementById('tasks-empty');
+  if (!tasks.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = tasks.map(t => {
+    const date = t.created_at ? new Date(t.created_at).toLocaleString('ru', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+    }) : '—';
+    const dur = t.duration_seconds ? t.duration_seconds.toFixed(1) + 'с' : '—';
+    return `
+      <tr>
+        <td style="color:var(--text-dim)">${t.id}</td>
+        <td style="color:var(--text-secondary)">${date}</td>
+        <td class="msg-cell" title="${escAttr(t.owner_message)}">${escHtml(t.owner_message.slice(0, 60))}</td>
+        <td><span class="status-badge ${t.status}">${t.status}</span></td>
+        <td style="color:var(--text-secondary)">${dur}</td>
+        <td><button class="btn-sm" onclick="showTaskDetail(${t.id})">Детали</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/* ── Render content ── */
+
+function renderContent(items) {
+  const grid = document.getElementById('content-grid');
+  const empty = document.getElementById('content-empty');
+  if (!items.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  grid.innerHTML = items.map(c => {
+    const preview = (c.body || '').slice(0, 120);
+    return `
+      <div class="content-card">
+        <div class="content-channel">${escHtml(c.channel)}</div>
+        <div class="content-topic">${escHtml(c.topic.slice(0, 80))}</div>
+        <div class="content-body-preview">${escHtml(preview)}...</div>
+        <div style="margin-bottom:8px">
+          <span class="status-badge ${c.status}">${c.status}</span>
+        </div>
+        <div class="content-actions">
+          <button class="btn-sm" onclick="showContentDetail(${c.id})">Посмотреть</button>
+          ${c.status === 'draft' ? `<button class="btn-sm green" onclick="approveContent(${c.id})">Одобрить</button>` : ''}
+          ${c.status === 'approved' ? `<button class="btn-sm accent" onclick="publishContent(${c.id})">Опубликовать</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function approveContent(id) {
+  try {
+    await apiFetch(`/api/content/${id}/approve`, { method: 'POST' });
+    toast('Контент одобрен', 'success');
+    loadContent();
+  } catch (e) { toast('Ошибка: ' + e.message, 'error'); }
+}
+
+/* ── Modals ── */
+
+async function showTaskDetail(id) {
+  const modal = document.getElementById('detail-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  title.textContent = 'Задача #' + id;
+  body.innerHTML = '<div style="color:var(--text-dim)">Загрузка...</div>';
+  modal.classList.remove('hidden');
+
+  try {
+    const data = await apiFetch(`/api/task/${id}`);
+    const task = data.task;
+    const chain = data.chain || [];
+
+    let chainHtml = chain.map((s, i) => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+        <span style="color:var(--accent)">${i + 1}.</span>
+        <strong>${escHtml(s.agent_name)}</strong>
+        <span style="color:var(--text-dim)">(${escHtml(s.agent_role)})</span>
+        <span class="status-badge ${s.status}" style="margin-left:8px">${s.status}</span>
+        <span style="color:var(--text-secondary);margin-left:8px">Токены: ${s.tokens_used}</span>
+        <div style="color:var(--text-dim);margin-top:4px;font-size:.75rem;max-height:80px;overflow:hidden">
+          ${escHtml((s.output_text || '').slice(0, 200))}
+        </div>
+      </div>
+    `).join('');
+
+    body.innerHTML = `
+      <div style="margin-bottom:14px">
+        <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:4px">КОМАНДА:</div>
+        <div style="font-size:.85rem;line-height:1.5">${escHtml(task.owner_message)}</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:4px">СТАТУС:
+          <span class="status-badge ${task.status}" style="margin-left:6px">${task.status}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--text-secondary)">
+          Время: ${task.duration_seconds ? task.duration_seconds.toFixed(1) + 'с' : '—'}
+        </div>
+      </div>
+      ${task.result ? `
+        <div style="margin-bottom:14px">
+          <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:4px">РЕЗУЛЬТАТ:</div>
+          <div style="font-size:.8rem;line-height:1.6;white-space:pre-wrap;max-height:300px;overflow-y:auto;
+            background:var(--bg-input);padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm)">
+            ${escHtml(task.result)}
+          </div>
+        </div>
+      ` : ''}
+      <div>
+        <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:8px">ЦЕПОЧКА ВЫПОЛНЕНИЯ (${chain.length}):</div>
+        ${chainHtml || '<div style="color:var(--text-dim);font-size:.8rem">Нет данных</div>'}
+      </div>
+    `;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--red)">Ошибка загрузки: ${e.message}</div>`;
+  }
+}
+
+async function showContentDetail(id) {
+  const modal = document.getElementById('detail-modal');
+  const title = document.getElementById('modal-title');
+  const body = document.getElementById('modal-body');
+
+  title.textContent = 'Контент #' + id;
+  body.innerHTML = '<div style="color:var(--text-dim)">Загрузка...</div>';
+  modal.classList.remove('hidden');
+
+  try {
+    const data = await apiFetch('/api/content?limit=200');
+    const item = (data.content || []).find(c => c.id === id);
+    if (!item) { body.innerHTML = 'Не найден'; return; }
+
+    body.innerHTML = `
+      <div style="margin-bottom:10px">
+        <span class="content-channel">${escHtml(item.channel)}</span>
+        <span class="status-badge ${item.status}" style="margin-left:10px">${item.status}</span>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:4px">ТЕМА:</div>
+      <div style="font-size:.85rem;margin-bottom:14px">${escHtml(item.topic)}</div>
+      <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:4px">ТЕКСТ:</div>
+      <div style="font-size:.82rem;line-height:1.7;white-space:pre-wrap;
+        background:var(--bg-input);padding:14px;border:1px solid var(--border);
+        border-radius:var(--radius-sm);max-height:50vh;overflow-y:auto">
+        ${escHtml(item.body)}
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        ${item.status === 'draft' ? `<button class="btn-sm green" onclick="approveContent(${id});closeModal()">Одобрить</button>` : ''}
+        ${item.status === 'approved' ? `<button class="btn-sm accent" onclick="publishContent(${id});closeModal()">Опубликовать</button>` : ''}
+        <button class="btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(JSON.stringify(item.body))});toast('Скопировано','success')">Копировать</button>
+      </div>
+    `;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--red)">Ошибка: ${e.message}</div>`;
+  }
+}
+
+function closeModal() {
+  document.getElementById('detail-modal').classList.add('hidden');
+}
+
+document.getElementById('detail-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'detail-modal') closeModal();
+});
+
+/* ── Tabs ── */
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ── Toast ── */
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 4000);
+}
+
+/* ── Utils ── */
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+function escAttr(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')
+    .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ── Keyboard ── */
+
+document.getElementById('task-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    executeTask();
+  }
+});
+
+/* ═══════════════════════════════════════
+   AGENCY CONTEXT — загрузка и управление
+   ═══════════════════════════════════════ */
+
+let _pendingContextFile = null;
+
+async function loadContextStatus() {
+  try {
+    const data = await apiFetch('/api/agency-context');
+    const dot = document.getElementById('ctx-dot');
+    const statusText = document.getElementById('ctx-status-text');
+    const preview = document.getElementById('ctx-preview');
+
+    if (data.source === 'uploaded') {
+      dot.className = 'ctx-dot loaded';
+      const d = data.uploaded_at ? new Date(data.uploaded_at).toLocaleDateString('ru') : '';
+      statusText.textContent = 'Файл загружен' + (d ? ': ' + d : '');
+    } else if (data.source === 'legacy') {
+      dot.className = 'ctx-dot loaded';
+      statusText.textContent = 'Из файлов проекта';
+    } else {
+      dot.className = 'ctx-dot default';
+      statusText.textContent = 'Используется шаблон';
+    }
+
+    preview.textContent = data.content_preview || 'Контекст не загружен';
+  } catch {
+    document.getElementById('ctx-preview').textContent = 'Ошибка загрузки статуса';
+  }
+}
+
+document.getElementById('ctx-file-input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  _pendingContextFile = file;
+  const sizeKB = (file.size / 1024).toFixed(1);
+  const info = document.getElementById('ctx-file-info');
+  info.textContent = `${file.name} (${sizeKB} КБ)`;
+  info.classList.remove('hidden');
+  document.getElementById('ctx-apply-btn').classList.remove('hidden');
+});
+
+async function applyContext() {
+  if (!_pendingContextFile) return;
+
+  const btn = document.getElementById('ctx-apply-btn');
+  const progress = document.getElementById('ctx-progress');
+  const bar = document.getElementById('ctx-progress-bar');
+
+  btn.disabled = true;
+  btn.textContent = 'Загрузка...';
+  progress.classList.remove('hidden');
+  bar.style.width = '30%';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', _pendingContextFile);
+
+    const headers = {};
+    if (PASSWORD) headers['X-Admin-Password'] = PASSWORD;
+
+    bar.style.width = '60%';
+
+    const res = await fetch(API + '/api/agency-context/upload', {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+
+    bar.style.width = '90%';
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Ошибка ${res.status}`);
+    }
+
+    const data = await res.json();
+    bar.style.width = '100%';
+
+    toast(data.message || 'Контекст обновлён', 'success');
+
+    _pendingContextFile = null;
+    document.getElementById('ctx-file-input').value = '';
+    document.getElementById('ctx-file-info').classList.add('hidden');
+    btn.classList.add('hidden');
+
+    await loadContextStatus();
+
+  } catch (e) {
+    toast('Ошибка загрузки: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Применить';
+    setTimeout(() => {
+      progress.classList.add('hidden');
+      bar.style.width = '0';
+    }, 1000);
+  }
+}
+
+function downloadTemplate() {
+  const link = document.createElement('a');
+  link.href = API + '/api/agency-context/template';
+  link.download = 'agency_context_template.md';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+</script>
+
+</body>
+</html>

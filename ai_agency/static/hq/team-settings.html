@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — Команда</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .ts-page { display:flex; flex-direction:column; gap:14px; padding:14px 18px 18px; flex:1; min-height:0; }
+    .ts-toolbar { display:flex; justify-content:space-between; align-items:center; }
+    .ts-toolbar h1 { font-size:18px; margin:0; }
+    .ts-table {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; overflow:hidden;
+    }
+    table.user-table { width:100%; border-collapse:collapse; }
+    table.user-table th, table.user-table td { padding:10px 14px; text-align:left; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.05); }
+    table.user-table th { background:rgba(255,255,255,0.03); font-weight:600; color:var(--hq-text-secondary); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+    table.user-table tbody tr:hover { background:rgba(255,255,255,0.02); }
+    .role-badge { padding:2px 8px; border-radius:5px; font-size:11px; font-weight:500; }
+    .role-owner { background:rgba(0,212,255,0.15); color:#00d4ff; }
+    .role-pm { background:rgba(168,85,247,0.15); color:#c084fc; }
+    .role-executor { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .role-reviewer { background:rgba(245,158,11,0.15); color:#fbbf24; }
+    .status-active { color:#4ade80; }
+    .status-paused { color:#fbbf24; }
+    .status-inactive { color:#9ca3af; }
+    .actions-cell { display:flex; gap:6px; }
+    .btn { padding:5px 10px; border-radius:6px; font-size:11px; font-weight:500; cursor:pointer; border:none; font-family:inherit; }
+    .btn-primary { background:var(--hq-cyan); color:#000; }
+    .btn-secondary { background:rgba(255,255,255,0.06); color:var(--hq-text); }
+    .btn-danger { background:rgba(239,68,68,0.15); color:#f87171; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:1000; overflow:auto; }
+    .modal-overlay.visible { display:flex; }
+    .modal-card { background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; width:100%; max-width:520px; padding:24px; display:flex; flex-direction:column; gap:14px; position:relative; }
+    .modal-close { position:absolute; top:12px; right:12px; background:transparent; border:none; cursor:pointer; color:var(--hq-text-secondary); font-size:24px; padding:4px 10px; }
+    .modal-title { font-size:16px; font-weight:600; padding-right:30px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .form-grid .full { grid-column:1/-1; }
+    .form-grid label { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.4px; }
+    .form-grid input, .form-grid select {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+      padding:8px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+    .ts-btn-bigprimary { padding:8px 14px; font-size:13px; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Команда</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+      </div>
+    </header>
+
+    <div class="hq-content ts-page">
+      <div class="ts-toolbar">
+        <h1>Сотрудники HQ</h1>
+        <button class="btn btn-primary ts-btn-bigprimary" id="btnAddUser">+ Сотрудник</button>
+      </div>
+
+      <div class="ts-table">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Логин</th>
+              <th>Роль</th>
+              <th>Telegram</th>
+              <th>Email</th>
+              <th>Спец-я</th>
+              <th>Статус</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--hq-muted);padding:20px">Загрузка...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ts-toolbar">
+        <h1>Исполнители (привязка к проектам)</h1>
+        <button class="btn btn-primary ts-btn-bigprimary" id="btnAddExecutor">+ Исполнитель</button>
+      </div>
+      <div class="ts-table">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Спец-я</th>
+              <th>Привязан к</th>
+              <th>Активных задач</th>
+              <th>На проверке</th>
+              <th>Просрочено</th>
+              <th>Загрузка</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="executorsBody">
+            <tr><td colspan="8" style="text-align:center;color:var(--hq-muted);padding:20px">Загрузка...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: User -->
+  <div class="modal-overlay" id="userModal">
+    <div class="modal-card">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title" id="userModalTitle">Сотрудник</div>
+      <form class="form-grid" id="userForm">
+        <input type="hidden" id="uf-id" />
+        <label>Имя <input type="text" id="uf-name" required /></label>
+        <label>Логин * <input type="text" id="uf-login" required /></label>
+        <label>Пароль <input type="password" id="uf-password" autocomplete="new-password" /></label>
+        <label>Роль <select id="uf-role">
+          <option value="executor">Executor</option>
+          <option value="pm">PM</option>
+          <option value="reviewer">Reviewer</option>
+          <option value="owner">Owner</option>
+        </select></label>
+        <label>Telegram <input type="text" id="uf-telegram" placeholder="@username" /></label>
+        <label>Email <input type="email" id="uf-email" /></label>
+        <label>GitHub <input type="text" id="uf-github_username" placeholder="username" /></label>
+        <label>Специализация <input type="text" id="uf-specialization" placeholder="Frontend, Backend, ..." /></label>
+        <label>Статус <select id="uf-status">
+          <option value="active">Активен</option>
+          <option value="paused">Пауза</option>
+          <option value="inactive">Неактивен</option>
+        </select></label>
+        <div class="modal-actions full">
+          <button type="button" class="btn btn-secondary" data-modal-close>Отмена</button>
+          <button type="submit" class="btn btn-primary ts-btn-bigprimary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Executor -->
+  <div class="modal-overlay" id="executorModal">
+    <div class="modal-card">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title" id="executorModalTitle">Исполнитель</div>
+      <form class="form-grid" id="executorForm">
+        <input type="hidden" id="ef-id" />
+        <label>Имя * <input type="text" id="ef-name" required /></label>
+        <label>Специализация <input type="text" id="ef-specialization" /></label>
+        <label>Привязать к пользователю
+          <select id="ef-user_id">
+            <option value="">— нет привязки —</option>
+          </select>
+        </label>
+        <label>Telegram <input type="text" id="ef-telegram" /></label>
+        <label>GitHub <input type="text" id="ef-github_username" /></label>
+        <label>Статус
+          <select id="ef-status">
+            <option>Доступен</option>
+            <option>Загружен</option>
+            <option>Перегружен</option>
+            <option>В отпуске</option>
+          </select>
+        </label>
+        <div class="modal-actions full">
+          <button type="button" class="btn btn-secondary" data-modal-close>Отмена</button>
+          <button type="submit" class="btn btn-primary ts-btn-bigprimary">Сохранить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const usersBody = document.getElementById('usersBody');
+      const execBody = document.getElementById('executorsBody');
+      const userModal = document.getElementById('userModal');
+      const userForm = document.getElementById('userForm');
+      const userModalTitle = document.getElementById('userModalTitle');
+      const execModal = document.getElementById('executorModal');
+      const execForm = document.getElementById('executorForm');
+      const execModalTitle = document.getElementById('executorModalTitle');
+
+      let users = [];
+      let executors = [];
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      function renderUsers() {
+        if (!users.length) {
+          usersBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hq-muted)">Нет пользователей</td></tr>';
+          return;
+        }
+        usersBody.innerHTML = users.map(u => (
+          '<tr>' +
+            '<td><strong>' + escapeHtml(u.name) + '</strong></td>' +
+            '<td><code>' + escapeHtml(u.login) + '</code></td>' +
+            '<td><span class="role-badge role-' + escapeHtml(u.role) + '">' + escapeHtml(u.role) + '</span></td>' +
+            '<td>' + escapeHtml(u.telegram || '—') + '</td>' +
+            '<td>' + escapeHtml(u.email || '—') + '</td>' +
+            '<td>' + escapeHtml(u.specialization || '—') + '</td>' +
+            '<td><span class="status-' + escapeHtml(u.status || 'active') + '">' + escapeHtml(u.status || 'active') + '</span></td>' +
+            '<td><div class="actions-cell">' +
+              '<button class="btn btn-secondary" data-edit-user="' + u.id + '">✎</button>' +
+              (u.role !== 'owner' ? '<button class="btn btn-danger" data-delete-user="' + u.id + '">×</button>' : '') +
+            '</div></td>' +
+          '</tr>'
+        )).join('');
+        usersBody.querySelectorAll('[data-edit-user]').forEach(b => b.addEventListener('click', () => editUser(parseInt(b.getAttribute('data-edit-user'), 10))));
+        usersBody.querySelectorAll('[data-delete-user]').forEach(b => b.addEventListener('click', () => deleteUser(parseInt(b.getAttribute('data-delete-user'), 10))));
+      }
+
+      function renderExecutors() {
+        if (!executors.length) {
+          execBody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hq-muted)">Нет исполнителей</td></tr>';
+          return;
+        }
+        execBody.innerHTML = executors.map(e => {
+          const linkedUser = users.find(u => u.id === e.user_id);
+          return (
+            '<tr>' +
+              '<td><strong>' + escapeHtml(e.name) + '</strong></td>' +
+              '<td>' + escapeHtml(e.specialization || '—') + '</td>' +
+              '<td>' + (linkedUser ? '<code>' + escapeHtml(linkedUser.login) + '</code>' : '—') + '</td>' +
+              '<td>' + (e.active_tasks || 0) + '</td>' +
+              '<td>' + (e.review_tasks || 0) + '</td>' +
+              '<td' + ((e.overdue_tasks || 0) > 0 ? ' style="color:#f87171"' : '') + '>' + (e.overdue_tasks || 0) + '</td>' +
+              '<td>' + escapeHtml(e.load_status || '—') + '</td>' +
+              '<td><div class="actions-cell">' +
+                '<button class="btn btn-secondary" data-edit-exec="' + e.id + '">✎</button>' +
+                '<button class="btn btn-danger" data-delete-exec="' + e.id + '">×</button>' +
+              '</div></td>' +
+            '</tr>'
+          );
+        }).join('');
+        execBody.querySelectorAll('[data-edit-exec]').forEach(b => b.addEventListener('click', () => editExecutor(parseInt(b.getAttribute('data-edit-exec'), 10))));
+        execBody.querySelectorAll('[data-delete-exec]').forEach(b => b.addEventListener('click', () => deleteExecutor(parseInt(b.getAttribute('data-delete-exec'), 10))));
+      }
+
+      // ─── Users ──────────────────────────────────────────────
+      function openUserModal(user) {
+        userForm.reset();
+        if (user) {
+          userModalTitle.textContent = 'Редактировать: ' + user.name;
+          document.getElementById('uf-id').value = user.id;
+          document.getElementById('uf-name').value = user.name;
+          document.getElementById('uf-login').value = user.login;
+          document.getElementById('uf-login').readOnly = true;
+          document.getElementById('uf-password').required = false;
+          document.getElementById('uf-password').placeholder = 'Оставьте пустым чтобы не менять';
+          document.getElementById('uf-role').value = user.role;
+          document.getElementById('uf-telegram').value = user.telegram || '';
+          document.getElementById('uf-email').value = user.email || '';
+          document.getElementById('uf-github_username').value = user.github_username || '';
+          document.getElementById('uf-specialization').value = user.specialization || '';
+          document.getElementById('uf-status').value = user.status || 'active';
+        } else {
+          userModalTitle.textContent = 'Новый сотрудник';
+          document.getElementById('uf-id').value = '';
+          document.getElementById('uf-login').readOnly = false;
+          document.getElementById('uf-password').required = true;
+          document.getElementById('uf-password').placeholder = '';
+        }
+        userModal.classList.add('visible');
+      }
+      function closeUserModal() { userModal.classList.remove('visible'); }
+
+      function editUser(id) {
+        const u = users.find(x => x.id === id);
+        if (u) openUserModal(u);
+      }
+
+      async function deleteUser(id) {
+        const u = users.find(x => x.id === id);
+        if (!u) return;
+        if (!confirm('Удалить пользователя «' + u.name + '»?')) return;
+        try {
+          await apiAuth('/api/users/' + id, 'DELETE');
+          showToast('Удалено', 'success');
+          await loadAll();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      userForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const id = document.getElementById('uf-id').value;
+        const payload = {
+          name: document.getElementById('uf-name').value,
+          login: document.getElementById('uf-login').value,
+          role: document.getElementById('uf-role').value,
+          telegram: document.getElementById('uf-telegram').value,
+          email: document.getElementById('uf-email').value,
+          github_username: document.getElementById('uf-github_username').value,
+          specialization: document.getElementById('uf-specialization').value,
+          status: document.getElementById('uf-status').value,
+        };
+        const pwd = document.getElementById('uf-password').value;
+        if (pwd) payload.password = pwd;
+        try {
+          if (id) {
+            await apiAuth('/api/users/' + id, 'PUT', payload);
+          } else {
+            await apiAuth('/api/users', 'POST', payload);
+          }
+          showToast('Сохранено', 'success');
+          closeUserModal();
+          await loadAll();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      });
+
+      // ─── Executors ──────────────────────────────────────────
+      function openExecutorModal(ex) {
+        execForm.reset();
+        const userSel = document.getElementById('ef-user_id');
+        userSel.innerHTML = '<option value="">— нет привязки —</option>' +
+          users.map(u => '<option value="' + u.id + '">' + escapeHtml(u.name) + ' (' + escapeHtml(u.login) + ')</option>').join('');
+        if (ex) {
+          execModalTitle.textContent = 'Редактировать: ' + ex.name;
+          document.getElementById('ef-id').value = ex.id;
+          document.getElementById('ef-name').value = ex.name;
+          document.getElementById('ef-specialization').value = ex.specialization || '';
+          document.getElementById('ef-user_id').value = ex.user_id || '';
+          document.getElementById('ef-telegram').value = ex.telegram || '';
+          document.getElementById('ef-github_username').value = ex.github_username || '';
+          document.getElementById('ef-status').value = ex.status || 'Доступен';
+        } else {
+          execModalTitle.textContent = 'Новый исполнитель';
+          document.getElementById('ef-id').value = '';
+        }
+        execModal.classList.add('visible');
+      }
+      function closeExecModal() { execModal.classList.remove('visible'); }
+
+      function editExecutor(id) {
+        const ex = executors.find(x => x.id === id);
+        if (ex) openExecutorModal(ex);
+      }
+
+      async function deleteExecutor(id) {
+        const e = executors.find(x => x.id === id);
+        if (!e) return;
+        if (!confirm('Удалить исполнителя «' + e.name + '»? Назначения на задачах обнулятся.')) return;
+        try {
+          await apiAuth('/api/delivery/executors/' + id, 'DELETE');
+          showToast('Удалено', 'success');
+          await loadAll();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      execForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const id = document.getElementById('ef-id').value;
+        const userIdVal = document.getElementById('ef-user_id').value;
+        const payload = {
+          name: document.getElementById('ef-name').value,
+          specialization: document.getElementById('ef-specialization').value,
+          user_id: userIdVal ? parseInt(userIdVal, 10) : null,
+          telegram: document.getElementById('ef-telegram').value,
+          github_username: document.getElementById('ef-github_username').value,
+          status: document.getElementById('ef-status').value,
+        };
+        try {
+          if (id) {
+            await apiAuth('/api/delivery/executors/' + id, 'PUT', payload);
+          } else {
+            await apiAuth('/api/delivery/executors', 'POST', payload);
+          }
+          showToast('Сохранено', 'success');
+          closeExecModal();
+          await loadAll();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      });
+
+      // Modal close
+      userModal.querySelectorAll('[data-modal-close]').forEach(b => b.addEventListener('click', closeUserModal));
+      userModal.addEventListener('click', e => { if (e.target === userModal) closeUserModal(); });
+      execModal.querySelectorAll('[data-modal-close]').forEach(b => b.addEventListener('click', closeExecModal));
+      execModal.addEventListener('click', e => { if (e.target === execModal) closeExecModal(); });
+
+      // Top buttons
+      document.getElementById('btnAddUser').addEventListener('click', () => openUserModal(null));
+      document.getElementById('btnAddExecutor').addEventListener('click', () => openExecutorModal(null));
+
+      // Clock
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      tickClock(); setInterval(tickClock, 30000);
+
+      // Loaders
+      async function loadAll() {
+        const [u, e] = await Promise.all([
+          apiAuth('/api/users').catch(() => ({ users: [] })),
+          apiAuth('/api/delivery/executors').catch(() => ({ executors: [] })),
+        ]);
+        users = (u && u.users) || [];
+        executors = (e && e.executors) || [];
+        renderUsers();
+        renderExecutors();
+      }
+
+      loadAll();
+    })();
+  </script>
+</body>
+</html>

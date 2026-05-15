@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — Проект</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .pd-page { display:flex; flex-direction:column; gap:14px; padding:14px 18px 18px; flex:1; min-height:0; }
+    .pd-header {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; padding:16px 18px;
+      display:grid; grid-template-columns:1fr auto; gap:12px; align-items:flex-start;
+    }
+    .pd-h-meta { display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .pd-h-title { font-size:20px; font-weight:700; color:var(--hq-text); line-height:1.3; }
+    .pd-h-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; font-size:12px; color:var(--hq-text-secondary); }
+    .pd-h-row .chip {
+      padding:3px 8px; border-radius:6px; background:rgba(255,255,255,0.06);
+    }
+    .pd-h-row .chip.cyan { background:rgba(0,212,255,0.12); color:var(--hq-cyan); }
+    .pd-h-row .chip.warn { background:rgba(245,158,11,0.12); color:#fbbf24; }
+    .pd-h-row .chip.danger { background:rgba(239,68,68,0.12); color:#f87171; }
+    .pd-h-actions { display:flex; gap:8px; flex-direction:column; align-items:flex-end; }
+    .pd-h-status select {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:8px;
+      padding:6px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .pd-tabs { display:flex; gap:4px; border-bottom:1px solid var(--hq-border); }
+    .pd-tab {
+      padding:10px 16px; cursor:pointer; font-size:13px; font-weight:500; color:var(--hq-text-secondary);
+      border:none; background:transparent; border-bottom:2px solid transparent; font-family:inherit;
+    }
+    .pd-tab.active { color:var(--hq-text); border-bottom-color:var(--hq-cyan); }
+    .pd-tab:hover { color:var(--hq-text); }
+    .pd-content { flex:1; min-height:0; overflow:auto; }
+
+    /* Stages */
+    .stages-list { display:flex; flex-direction:column; gap:12px; padding-top:12px; }
+    .stage-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:10px; padding:14px 16px;
+    }
+    .stage-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .stage-name { font-size:14px; font-weight:600; color:var(--hq-text); }
+    .stage-meta { font-size:12px; color:var(--hq-text-secondary); }
+    .stage-tasks {
+      display:flex; flex-direction:column; gap:6px; padding-left:14px; border-left:2px solid rgba(255,255,255,0.06);
+    }
+    .stage-task-row {
+      display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center;
+      padding:8px 10px; background:rgba(255,255,255,0.02); border-radius:6px; cursor:pointer; font-size:13px;
+    }
+    .stage-task-row:hover { background:rgba(255,255,255,0.05); }
+    .stage-task-circle {
+      width:22px; height:22px; flex-shrink:0; border-radius:50%; border:2px solid var(--hq-text-secondary);
+      background:transparent; color:inherit; cursor:pointer; padding:0; display:inline-flex; align-items:center;
+      justify-content:center; font-size:11px; line-height:1; font-family:inherit;
+    }
+    .stage-task-circle:hover { border-color:var(--hq-cyan); color:var(--hq-cyan); }
+    .stage-task-circle.done { background:rgba(34,197,94,0.2); border-color:#4ade80; color:#4ade80; }
+    .stage-task-delete {
+      width:28px; height:28px; flex-shrink:0; border:none; border-radius:6px; background:rgba(255,255,255,0.06);
+      color:var(--hq-text-secondary); cursor:pointer; font-size:18px; line-height:1; padding:0; font-family:inherit;
+      display:inline-flex; align-items:center; justify-content:center;
+    }
+    .stage-task-delete:hover { background:rgba(239,68,68,0.15); color:#f87171; }
+    .stage-task-status {
+      font-size:10px; padding:2px 6px; border-radius:4px; text-transform:uppercase;
+      background:rgba(255,255,255,0.06); color:var(--hq-text-secondary);
+    }
+    .stage-add-task {
+      display:flex; gap:6px; margin-top:10px;
+    }
+    .stage-add-task input {
+      flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+      padding:6px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+
+    /* Kanban */
+    .kanban-board {
+      display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:10px; padding-top:12px; min-height:0;
+    }
+    .kanban-col {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:10px;
+      display:flex; flex-direction:column; min-height:300px;
+    }
+    .kanban-col-head {
+      padding:10px 12px; border-bottom:1px solid var(--hq-border); display:flex;
+      justify-content:space-between; font-size:12px; font-weight:600; color:var(--hq-text);
+    }
+    .kanban-col-count { color:var(--hq-text-secondary); font-weight:400; }
+    .kanban-col-body {
+      padding:8px; display:flex; flex-direction:column; gap:6px; overflow:auto; min-height:0; flex:1;
+    }
+    .kanban-ghost {
+      opacity:0.4;
+      background:rgba(124,58,237,.15);
+      border:2px dashed #7c3aed !important;
+      border-radius:8px;
+    }
+    .kanban-dragging {
+      opacity:0.9;
+      transform:rotate(2deg);
+      box-shadow:0 8px 30px rgba(0,0,0,.4);
+      z-index:1000;
+    }
+    .task-drag-handle {
+      cursor:grab;
+      color:var(--hq-muted);
+      padding:2px 4px;
+      border-radius:4px;
+      display:inline-flex;
+      align-items:center;
+      flex-shrink:0;
+    }
+    .task-drag-handle:hover { color:var(--hq-text-secondary); }
+    .task-drag-handle:active { cursor:grabbing; }
+    .kanban-card-row {
+      display:flex; gap:8px; align-items:flex-start; min-width:0;
+    }
+    .kanban-card-stack {
+      flex:1; min-width:0;
+      display:flex; flex-direction:column; gap:6px;
+      cursor:pointer;
+    }
+    .kanban-card {
+      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:8px;
+      padding:10px; font-size:12px; display:flex; flex-direction:column; gap:6px;
+    }
+    .kanban-card:hover { border-color:rgba(0,212,255,0.3); }
+    .kanban-card-title { font-size:13px; font-weight:500; color:var(--hq-text); line-height:1.4; }
+    .kanban-card-meta { display:flex; flex-wrap:wrap; gap:5px; font-size:10px; color:var(--hq-text-secondary); }
+    .kanban-card-meta .chip { padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); }
+    .kanban-card-meta .prio-Critical { color:#f87171; background:rgba(239,68,68,0.1); }
+    .kanban-card-meta .prio-High { color:#fbbf24; background:rgba(245,158,11,0.1); }
+    .kanban-card-meta .ovrd { color:#f87171; }
+
+    /* Modal — выше чем body.hq-body .modal-overlay в style.css, и показ через .visible */
+    body.hq-body .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    body.hq-body .modal-overlay.visible {
+      display: flex !important;
+    }
+    .modal-card {
+      background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px;
+      width:100%; max-width:680px; padding:24px; display:flex; flex-direction:column; gap:16px;
+      position:relative;
+    }
+    .modal-close {
+      position:absolute; top:12px; right:12px; background:transparent; border:none; cursor:pointer;
+      color:var(--hq-text-secondary); font-size:24px; padding:4px 10px;
+    }
+    .modal-title { font-size:17px; font-weight:600; color:var(--hq-text); padding-right:30px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .form-grid .full { grid-column:1/-1; }
+    .form-grid label { display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--hq-text-secondary); font-weight:500; text-transform:uppercase; letter-spacing:0.4px; }
+    .form-grid input, .form-grid select, .form-grid textarea {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:7px;
+      padding:8px 10px; font-size:13px; color:var(--hq-text); font-family:inherit;
+    }
+    .form-grid textarea { min-height:60px; resize:vertical; }
+    .checklist-block { display:flex; flex-direction:column; gap:6px; }
+    .checklist-item {
+      display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:center; padding:6px 10px;
+      background:rgba(255,255,255,0.02); border-radius:6px; font-size:13px;
+    }
+    .checklist-item input[type="checkbox"] { cursor:pointer; }
+    .checklist-item.done { opacity:0.6; text-decoration:line-through; }
+    .checklist-add { display:flex; gap:6px; margin-top:4px; }
+    .checklist-add input { flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:6px 10px; font-size:12px; color:var(--hq-text); font-family:inherit; }
+    .comments-block { display:flex; flex-direction:column; gap:8px; max-height:240px; overflow:auto; }
+    .comment {
+      padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:6px; font-size:13px;
+    }
+    .comment-author { font-size:11px; color:var(--hq-text-secondary); margin-bottom:3px; }
+    .comment-add { display:flex; gap:6px; margin-top:6px; }
+    .comment-add textarea { flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:6px 10px; font-size:13px; color:var(--hq-text); font-family:inherit; min-height:50px; resize:vertical; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .section-label { font-size:11px; font-weight:600; color:var(--hq-text-secondary); text-transform:uppercase; letter-spacing:0.5px; margin-top:6px; }
+    .btn { padding:8px 14px; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:none; font-family:inherit; }
+    .btn-primary { background:var(--hq-cyan); color:#000; }
+    .btn-secondary { background:rgba(255,255,255,0.06); color:var(--hq-text); }
+    .btn-warn { background:rgba(245,158,11,0.15); color:#fbbf24; }
+    .btn-success { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .btn-danger { background:rgba(239,68,68,0.15); color:#f87171; }
+    .btn-sm { padding:5px 10px; font-size:12px; }
+
+    @media (max-width:1180px) {
+      .kanban-board { grid-template-columns:repeat(3, 1fr); overflow-x:auto; }
+      .pd-header { grid-template-columns:1fr; }
+    }
+    @media (max-width:780px) {
+      .kanban-board { grid-template-columns:1fr; }
+      .form-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">
+        <a href="/hq/delivery.html" style="color:var(--hq-text-secondary);text-decoration:none">← Производство</a>
+      </span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+      </div>
+    </header>
+
+    <div class="hq-content pd-page" id="pdRoot">
+      <div style="text-align:center;padding:40px;color:var(--hq-muted)">Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- Modal: Task -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-card" id="taskModalCard">
+      <button class="modal-close" data-modal-close>×</button>
+      <div class="modal-title" id="taskModalTitle">Задача</div>
+      <div id="taskModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const PROJECT_ID = parseInt(params.get('id') || '0', 10);
+      const role = getCurrentRole();
+      const canEditProject = role === 'owner' || role === 'pm';
+
+      const root = document.getElementById('pdRoot');
+      const taskModal = document.getElementById('taskModal');
+      const taskModalBody = document.getElementById('taskModalBody');
+      const taskModalTitle = document.getElementById('taskModalTitle');
+
+      let project = null;
+      let stages = [];
+      let tasks = [];
+      let executors = [];
+      let activeTab = 'stages';
+      let currentTask = null;
+
+      const KANBAN_COLS = ['Backlog', 'Ready', 'In Progress', 'Review', 'Done'];
+      const ALL_STATUSES = ['Backlog','Ready','In Progress','Review','Approved','Done','Blocked','Changes Requested','Cancelled'];
+
+      function canDragKanban() {
+        return ['owner','pm','executor','reviewer'].indexOf(role || '') !== -1;
+      }
+
+      function initKanbanDragDrop() {
+        if (typeof Sortable === 'undefined') return;
+        const columns = document.querySelectorAll('.kanban-column-cards, [data-kanban-column]');
+        columns.forEach(function (column) {
+          if (column._sortable) {
+            try { column._sortable.destroy(); } catch (e) {}
+            column._sortable = null;
+          }
+          if (!canDragKanban()) return;
+
+          column._sortable = Sortable.create(column, {
+            group: 'delivery-kanban',
+            animation: 150,
+            ghostClass: 'kanban-ghost',
+            dragClass: 'kanban-dragging',
+            handle: '.task-drag-handle',
+            draggable: '.kanban-card',
+            onEnd: async function (evt) {
+              const taskId = evt.item.dataset.taskId ? parseInt(evt.item.dataset.taskId, 10) : parseInt(evt.item.getAttribute('data-tid') || '0', 10);
+              const newStatus = evt.to.dataset.status;
+              if (!taskId || !newStatus) return;
+
+              if (evt.from === evt.to && evt.oldIndex !== evt.newIndex) return;
+
+              try {
+                await apiAuth('/api/delivery/tasks/' + taskId, 'PUT', { status: newStatus });
+                const tn = tasks.find(function (x) { return x.id === taskId; });
+                if (tn) tn.status = newStatus;
+                showToast('Задача → ' + newStatus, 'success');
+              } catch (e) {
+                showToast('Ошибка сохранения', 'error');
+                try {
+                  evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                } catch (err) {
+                  try {
+                    await loadTasks();
+                    renderTab();
+                  } catch (e2) {}
+                }
+              }
+            }
+          });
+        });
+      }
+
+      function escapeHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      let _deliveryExecutorsPick = [];
+
+      function openCreateStageModal(projectId) {
+        document.getElementById('create-stage-modal') && document.getElementById('create-stage-modal').remove();
+        const modal = document.createElement('div');
+        modal.id = 'create-stage-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+        modal.innerHTML = (
+          '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:24px;width:440px;max-width:100%">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+          '<h3 style="margin:0;font-size:16px;font-weight:600">Новый этап</h3>' +
+          '<button type="button" class="cssm-close-x" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:#a0a0a0;width:28px;height:28px;cursor:pointer;font-size:18px">&times;</button>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:12px">' +
+          '<input id="cs-name" placeholder="Название этапа *" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;outline:none;width:100%;box-sizing:border-box" />' +
+          '<textarea id="cs-desc" placeholder="Описание (необязательно)" rows="2" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;resize:vertical;width:100%;box-sizing:border-box;font-family:inherit"></textarea>' +
+          '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Дедлайн</label>' +
+          '<input id="cs-deadline" type="date" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;width:100%;box-sizing:border-box" /></div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:16px">' +
+          '<button type="button" id="cssm-save" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:600;cursor:pointer">Создать этап</button>' +
+          '<button type="button" class="cssm-cancel" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:11px 16px;cursor:pointer">Отмена</button>' +
+          '</div></div>');
+        modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+        function rm() { modal.remove(); }
+        modal.querySelector('.cssm-close-x').addEventListener('click', rm);
+        modal.querySelector('.cssm-cancel').addEventListener('click', rm);
+        modal.querySelector('#cssm-save').addEventListener('click', async function () {
+          const nameEl = modal.querySelector('#cs-name');
+          const name = nameEl ? (nameEl.value || '').trim() : '';
+          if (!name) { showToast('Введите название этапа', 'error'); return; }
+          try {
+            await apiAuth('/api/delivery/projects/' + projectId + '/stages', 'POST', {
+              name: name,
+              description: (modal.querySelector('#cs-desc') && modal.querySelector('#cs-desc').value) || '',
+              deadline: (modal.querySelector('#cs-deadline') && modal.querySelector('#cs-deadline').value) || ''
+            });
+            modal.remove();
+            showToast('Этап создан', 'success');
+            await loadStages();
+            renderTab();
+          } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
+        });
+        setTimeout(function () {
+          var n = document.getElementById('cs-name');
+          if (n) n.focus();
+        }, 50);
+      }
+
+      async function openCreateDeliveryTaskModal(projectId, stageId) {
+        document.getElementById('create-dtask-modal') && document.getElementById('create-dtask-modal').remove();
+        try {
+          const r = await apiAuth('/api/delivery/executors');
+          _deliveryExecutorsPick = (r && r.executors) ? r.executors : [];
+        } catch (e) { _deliveryExecutorsPick = []; }
+
+        const executorOpts = _deliveryExecutorsPick.length
+          ? _deliveryExecutorsPick.map(function (ex) {
+            return '<option value="' + escapeHtml(String(ex.id)) + '">' + escapeHtml(ex.name) + ' (' + escapeHtml(ex.role || '') + ')</option>';
+          }).join('')
+          : '<option value="">Нет исполнителей</option>';
+
+        const modal = document.createElement('div');
+        modal.id = 'create-dtask-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px';
+        modal.innerHTML = (
+          '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:24px;width:520px;max-width:100%;max-height:85vh;overflow-y:auto">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+          '<h3 style="margin:0;font-size:16px;font-weight:600">Новая задача</h3>' +
+          '<button type="button" class="cdtm-close-x" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:#a0a0a0;width:28px;height:28px;cursor:pointer;font-size:18px">&times;</button>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:12px">' +
+          '<input id="cdt-name" type="text" placeholder="Название задачи *" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;outline:none;width:100%;box-sizing:border-box" />' +
+          '<textarea id="cdt-desc" placeholder="Описание и цель задачи" rows="3" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;resize:vertical;width:100%;box-sizing:border-box;font-family:inherit"></textarea>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+          '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Приоритет</label>' +
+          '<select id="cdt-priority" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px">' +
+          '<option value="Low">Low</option><option value="Medium" selected>Medium</option><option value="High">High</option><option value="Critical">Critical</option></select></div>' +
+          '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Исполнитель</label>' +
+          '<select id="cdt-assignee" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px">' +
+          '<option value="">Не назначен</option>' + executorOpts + '</select></div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">' +
+          '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Дедлайн</label>' +
+          '<input id="cdt-deadline" type="date" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;width:100%;box-sizing:border-box" /></div>' +
+          '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Ветка</label>' +
+          '<input id="cdt-branch" type="text" placeholder="feature/..." style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;outline:none;width:100%;box-sizing:border-box" /></div>' +
+          '</div></div>' +
+          '<div style="display:flex;gap:8px;margin-top:16px">' +
+          '<button type="button" id="cdtm-save" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:600;cursor:pointer">Создать задачу</button>' +
+          '<button type="button" class="cdtm-cancel" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:11px 16px;cursor:pointer">Отмена</button>' +
+          '</div></div>');
+        modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+        function rm() { modal.remove(); }
+        modal.querySelector('.cdtm-close-x').addEventListener('click', rm);
+        modal.querySelector('.cdtm-cancel').addEventListener('click', rm);
+        modal.querySelector('#cdtm-save').addEventListener('click', async function () {
+          const nameEl = document.getElementById('cdt-name');
+          const name = nameEl ? (nameEl.value || '').trim() : '';
+          if (!name) { showToast('Введите название', 'error'); return; }
+          const assigneeVal = document.getElementById('cdt-assignee') ? document.getElementById('cdt-assignee').value : '';
+          var sidParsed = assigneeVal ? parseInt(assigneeVal, 10) : NaN;
+          try {
+            await apiAuth('/api/delivery/tasks', 'POST', {
+              project_id: projectId,
+              stage_id: stageId != null && stageId !== '' ? stageId : null,
+              title: name,
+              description: (document.getElementById('cdt-desc') && document.getElementById('cdt-desc').value) || '',
+              priority: (document.getElementById('cdt-priority') && document.getElementById('cdt-priority').value) || 'Medium',
+              assignee_id: !isNaN(sidParsed) ? sidParsed : null,
+              deadline: (document.getElementById('cdt-deadline') && document.getElementById('cdt-deadline').value) || '',
+              branch_name: (document.getElementById('cdt-branch') && document.getElementById('cdt-branch').value) || ''
+            });
+            modal.remove();
+            showToast('Задача создана', 'success');
+            await loadTasks();
+            renderTab();
+          } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
+        });
+        setTimeout(function () { var n = document.getElementById('cdt-name'); if (n) n.focus(); }, 50);
+      }
+
+      function renderHeader() {
+        const fmt = function (n) {
+          return new Intl.NumberFormat('ru-RU').format(Math.round(Number(n || 0)));
+        };
+
+        const totalTasks = tasks.length;
+        const doneTasks = tasks.filter(function (t) { return t.status === 'Done'; }).length;
+        const reviewTasks = tasks.filter(function (t) { return t.status === 'Review'; }).length;
+        const overdueTasks = tasks.filter(function (t) {
+          return t.deadline && t.deadline < new Date().toISOString().slice(0, 10) && t.status !== 'Done' && t.status !== 'Cancelled';
+        }).length;
+        const progress = totalTasks > 0 ? Math.round(doneTasks / totalTasks * 100) : 0;
+
+        const statusOpts = ['Подготовка', 'В работе', 'На проверке', 'Ожидает клиента', 'Запущен', 'Завершён', 'Заморожен', 'Черновик']
+          .map(function (s) {
+            return '<option value="' + escapeHtml(s) + '"' + (project.status === s ? ' selected' : '') + '>' + escapeHtml(s) + '</option>';
+          }).join('');
+
+        let budgetHtml = '';
+        if (project.budget) {
+          let our = '';
+          if ((project.owner_type || '') === 'student' && project.our_amount) {
+            our = '<span style="color:#a855f7"> · наше: ' + fmt(project.our_amount) + ' ₽</span>';
+          }
+          budgetHtml =
+            '<span style="background:rgba(255,255,255,.05);color:#e0e0e0;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600">' +
+            '💰 ' + fmt(project.budget) + ' ₽' + our +
+            '</span>';
+        }
+
+        const reviewChip = reviewTasks > 0
+          ? '<span style="background:rgba(245,158,11,.12);color:#f59e0b;padding:3px 10px;border-radius:6px;font-size:12px">👁 ' + reviewTasks + ' на проверке</span>'
+          : '';
+        const overdueChip = overdueTasks > 0
+          ? '<span style="background:rgba(239,68,68,.12);color:#ef4444;padding:3px 10px;border-radius:6px;font-size:12px">⚠ ' + overdueTasks + ' просрочено</span>'
+          : '';
+
+        const linksRow = (project.github_repo_url || project.vercel_project_url || project.production_url) ? (
+          '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">' +
+            (project.github_repo_url ? '<a href="' + escapeHtml(project.github_repo_url) + '" target="_blank" class="chip cyan">GitHub →</a>' : '') +
+            (project.vercel_project_url ? '<a href="' + escapeHtml(project.vercel_project_url) + '" target="_blank" class="chip cyan">Vercel →</a>' : '') +
+            (project.production_url ? '<a href="' + escapeHtml(project.production_url) + '" target="_blank" class="chip cyan">Production →</a>' : '') +
+          '</div>'
+        ) : '';
+
+        return (
+          '<div class="pd-header" style="padding:0">' +
+            '<div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.06)">' +
+              '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">' +
+                '<h1 style="margin:0;font-size:20px;font-weight:700;color:#e0e0e0;flex:1;min-width:0">' + escapeHtml(project.name) + '</h1>' +
+                (canEditProject
+                  ? '<select id="projStatusSelect" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#e0e0e0;padding:6px 10px;font-size:13px;cursor:pointer">' +
+                    statusOpts +
+                    '</select>'
+                  : '<span class="status-badge">' + escapeHtml(project.status) + '</span>') +
+              '</div>' +
+
+              '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">' +
+                (project.type
+                  ? '<span style="background:rgba(124,58,237,.12);color:#a855f7;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:500">' + escapeHtml(project.type) + '</span>'
+                  : '') +
+                (project.client_name
+                  ? '<span style="background:rgba(59,130,246,.1);color:#3b82f6;padding:3px 10px;border-radius:6px;font-size:12px">👤 ' + escapeHtml(project.client_name) + '</span>'
+                  : '') +
+                (project.student_name
+                  ? '<span style="background:rgba(124,58,237,.1);color:#a855f7;padding:3px 10px;border-radius:6px;font-size:12px">🎓 ' + escapeHtml(project.student_name) + '</span>'
+                  : '') +
+                '<span style="background:rgba(255,255,255,.05);color:#606060;padding:3px 10px;border-radius:6px;font-size:12px">' +
+                  '📋 ' + totalTasks + ' задач (✓ ' + doneTasks + ', ' + progress + '%)' +
+                '</span>' +
+                reviewChip +
+                overdueChip +
+                (project.deadline
+                  ? '<span style="background:rgba(255,255,255,.05);color:#606060;padding:3px 10px;border-radius:6px;font-size:12px">📅 ' + escapeHtml(project.deadline) + '</span>'
+                  : '') +
+                budgetHtml +
+              '</div>' +
+
+              (totalTasks > 0
+                ? '<div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:12px">' +
+                  '<div style="height:4px;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:2px;width:' + progress + '%;transition:width .5s ease"></div>' +
+                  '</div>'
+                : '') +
+
+              (canEditProject
+                ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                  '<button id="btnEditProject" class="btn btn-secondary btn-sm">✏️ Редактировать</button>' +
+                  (role === 'owner'
+                    ? '<button id="btnDeleteProject" class="btn btn-sm" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:#ef4444">🗑 Удалить</button>'
+                    : '') +
+                  '</div>'
+                : '') +
+              linksRow +
+            '</div>' +
+            '<div class="pd-tabs">' +
+              '<button class="pd-tab' + (activeTab === 'stages' ? ' active' : '') + '" data-tab="stages">Этапы</button>' +
+              '<button class="pd-tab' + (activeTab === 'kanban' ? ' active' : '') + '" data-tab="kanban">Канбан</button>' +
+              '<button class="pd-tab' + (activeTab === 'links' ? ' active' : '') + '" data-tab="links">PR / Preview</button>' +
+            '</div>' +
+            '<div class="pd-content" id="pdTabBody"></div>' +
+          '</div>'
+        );
+      }
+
+      function renderStages() {
+        if (!stages.length) {
+          let html = '<div style="padding:40px;text-align:center;color:var(--hq-muted)">Нет этапов.';
+          if (canEditProject) {
+            html += '<br/><button class="btn btn-primary btn-sm" id="btnAddFirstStage" style="margin-top:12px">+ Добавить этап</button>';
+          }
+          html += '</div>';
+          return html;
+        }
+        return (
+          '<div class="stages-list">' +
+            stages.map(s => {
+              const tasksOfStage = tasks.filter(t => t.stage_id === s.id);
+              const total = tasksOfStage.length;
+              const done = tasksOfStage.filter(t => t.status === 'Done').length;
+              const pct = total > 0 ? Math.round(done / total * 100) : 0;
+              return (
+                '<div class="stage-card">' +
+                  '<div class="stage-head">' +
+                    '<div class="stage-name">' + escapeHtml(s.name) + '</div>' +
+                    '<div class="stage-meta">' + done + '/' + total + ' задач (' + pct + '%)' +
+                      (s.deadline ? ' · 📅 ' + escapeHtml(s.deadline) : '') + '</div>' +
+                  '</div>' +
+                  '<div class="stage-tasks">' +
+                    (tasksOfStage.length ? tasksOfStage.map(t => (
+                      '<div class="stage-task-row" data-tid="' + t.id + '">' +
+                        '<button type="button" class="stage-task-circle' + (t.status === 'Done' ? ' done' : '') + '" data-task-circle data-task-id="' + t.id + '" title="Отметить выполненной">' +
+                          (t.status === 'Done' ? '✓' : '') +
+                        '</button>' +
+                        '<span>' + escapeHtml(t.title) +
+                          (t.assignee_name ? ' · <span style="color:var(--hq-text-secondary);font-size:11px">' + escapeHtml(t.assignee_name) + '</span>' : '') +
+                          (t.deadline ? ' · <span style="font-size:11px;color:var(--hq-text-secondary)">📅 ' + escapeHtml(t.deadline) + '</span>' : '') +
+                        '</span>' +
+                        '<span class="stage-task-status">' + escapeHtml(t.status) + '</span>' +
+                        '<button type="button" class="stage-task-delete" data-task-delete data-task-id="' + t.id + '" title="Удалить">×</button>' +
+                      '</div>'
+                    )).join('') : '<div style="font-size:12px;color:var(--hq-muted);padding:8px">Нет задач</div>') +
+                  '</div>' +
+                  (canEditProject ? (
+                    '<div class="stage-add-task">' +
+                      '<input type="text" placeholder="Новая задача" data-stage-input="' + s.id + '" />' +
+                      '<button class="btn btn-primary btn-sm" data-stage-add="' + s.id + '">+ Задача</button>' +
+                    '</div>'
+                  ) : '') +
+                '</div>'
+              );
+            }).join('') +
+            (canEditProject ? '<button class="btn btn-secondary btn-sm" id="btnAddStage" style="align-self:flex-start">+ Этап</button>' : '') +
+          '</div>'
+        );
+      }
+
+      function renderKanban() {
+        return (
+          '<div class="kanban-board">' +
+            KANBAN_COLS.map(col => {
+              const colTasks = tasks.filter(t => t.status === col);
+              return (
+                '<div class="kanban-col">' +
+                  '<div class="kanban-col-head"><span>' + col + '</span><span class="kanban-col-count">' + colTasks.length + '</span></div>' +
+                  '<div class="kanban-col-body kanban-column-cards" data-kanban-column data-status="' + escapeHtml(col) + '">' +
+                    colTasks.map(t => {
+                      const overdue = t.deadline && t.deadline < new Date().toISOString().slice(0,10) && t.status !== 'Done' && t.status !== 'Cancelled';
+                      return (
+                        '<div class="kanban-card" data-task-id="' + t.id + '" data-tid="' + t.id + '">' +
+                          '<div class="kanban-card-row">' +
+                          '<div class="task-drag-handle" title="Перетащить">' +
+                          '<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">' +
+                          '<circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/></svg>' +
+                          '</div>' +
+                          '<div class="kanban-card-stack">' +
+                          '<div class="kanban-card-title">' + escapeHtml(t.title) + '</div>' +
+                          '<div class="kanban-card-meta">' +
+                            (t.priority && t.priority !== 'Medium' ? '<span class="chip prio-' + t.priority + '">' + t.priority + '</span>' : '') +
+                            (t.assignee_name ? '<span class="chip">👤 ' + escapeHtml(t.assignee_name) + '</span>' : '') +
+                            (t.deadline ? '<span class="chip' + (overdue ? ' ovrd' : '') + '">📅 ' + escapeHtml(t.deadline) + '</span>' : '') +
+                            (t.pull_request_url ? '<span class="chip">PR ✓</span>' : '') +
+                          '</div>' +
+                          '</div>' +
+                          '</div>' +
+                        '</div>'
+                      );
+                    }).join('') +
+                    (canEditProject && col === 'Backlog' ? '<button class="btn btn-secondary btn-sm" id="btnAddTask" style="margin-top:6px">+ Задача</button>' : '') +
+                  '</div>' +
+                '</div>'
+              );
+            }).join('') +
+          '</div>'
+        );
+      }
+
+      function renderLinks() {
+        const withPR = tasks.filter(t => t.pull_request_url || t.preview_url);
+        if (!withPR.length) return '<div style="padding:40px;text-align:center;color:var(--hq-muted)">Нет задач с PR/Preview ссылками</div>';
+        return (
+          '<div style="padding-top:12px;display:flex;flex-direction:column;gap:8px">' +
+            withPR.map(t => (
+              '<div style="background:var(--hq-card);border:1px solid var(--hq-border);border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">' +
+                '<div>' +
+                  '<div style="font-size:13px;font-weight:500">' + escapeHtml(t.title) + '</div>' +
+                  '<div style="font-size:11px;color:var(--hq-text-secondary);margin-top:3px">' + escapeHtml(t.status) + (t.assignee_name ? ' · ' + escapeHtml(t.assignee_name) : '') + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px">' +
+                  (t.pull_request_url ? '<a href="' + escapeHtml(t.pull_request_url) + '" target="_blank" class="btn btn-secondary btn-sm">PR →</a>' : '') +
+                  (t.preview_url ? '<a href="' + escapeHtml(t.preview_url) + '" target="_blank" class="btn btn-secondary btn-sm">Preview →</a>' : '') +
+                  '<button class="btn btn-primary btn-sm" data-open-task="' + t.id + '">Открыть</button>' +
+                '</div>' +
+              '</div>'
+            )).join('') +
+          '</div>'
+        );
+      }
+
+      function renderTab() {
+        const body = document.getElementById('pdTabBody');
+        if (!body) return;
+        if (activeTab === 'stages') body.innerHTML = renderStages();
+        else if (activeTab === 'kanban') body.innerHTML = renderKanban();
+        else if (activeTab === 'links') body.innerHTML = renderLinks();
+        bindTabHandlers();
+        if (activeTab === 'kanban') {
+          if (typeof Sortable !== 'undefined') initKanbanDragDrop();
+          else console.warn('SortableJS не загружен');
+        }
+      }
+
+      function render() {
+        root.innerHTML = renderHeader();
+        renderTab();
+        bindHeaderHandlers();
+        if (window.lucide && lucide.createIcons) lucide.createIcons();
+      }
+
+      function bindHeaderHandlers() {
+        document.querySelectorAll('.pd-tab').forEach(t => {
+          t.addEventListener('click', function () {
+            activeTab = this.getAttribute('data-tab');
+            render();
+          });
+        });
+        const sel = document.getElementById('projStatusSelect');
+        if (sel) sel.addEventListener('change', async function () {
+          try {
+            await apiAuth('/api/delivery/projects/' + PROJECT_ID, 'PUT', { status: sel.value });
+            project.status = sel.value;
+            showToast('Статус обновлён', 'success');
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+        const btnDel = document.getElementById('btnDeleteProject');
+        if (btnDel) btnDel.addEventListener('click', async function () {
+          if (!confirm('Удалить проект «' + project.name + '» со всеми этапами и задачами?')) return;
+          try {
+            await apiAuth('/api/delivery/projects/' + PROJECT_ID, 'DELETE');
+            window.location.href = '/hq/delivery.html';
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+        const btnEdit = document.getElementById('btnEditProject');
+        if (btnEdit) btnEdit.addEventListener('click', openEditProjectModal);
+      }
+
+      async function toggleDeliveryTaskById(taskId) {
+        var id = typeof taskId === 'string' ? parseInt(taskId, 10) : taskId;
+        if (!id) return;
+        var t = tasks.find(function (x) { return x.id === id; });
+        if (!t) return;
+        var nextStatus = t.status === 'Done' ? 'Backlog' : 'Done';
+        try {
+          await apiAuth('/api/delivery/tasks/' + id, 'PUT', { status: nextStatus });
+          showToast(nextStatus === 'Done' ? 'Задача отмечена выполненной' : 'Отметка снята', 'success');
+          await loadTasks();
+          renderTab();
+        } catch (e) {
+          showToast('Ошибка: ' + (e.message || String(e)), 'error');
+        }
+      }
+
+      async function deleteDeliveryTask(taskId) {
+        if (!confirm('Удалить задачу?')) return;
+        var id = typeof taskId === 'string' ? parseInt(taskId, 10) : taskId;
+        if (!id) return;
+        try {
+          await apiAuth('/api/delivery/tasks/' + id, 'DELETE');
+          showToast('Задача удалена', 'success');
+          if (currentTask && currentTask.id === id) closeTaskModal();
+          await loadTasks();
+          renderTab();
+        } catch (e) {
+          showToast('Ошибка: ' + (e.message || String(e)), 'error');
+        }
+      }
+
+      function bindTabHandlers() {
+        document.querySelectorAll('.stage-task-row[data-tid]').forEach(el => {
+          el.addEventListener('click', function (e) {
+            if (e.target.closest('[data-task-circle], [data-task-delete]')) return;
+            openTaskModal(parseInt(el.getAttribute('data-tid'), 10));
+          });
+        });
+        document.querySelectorAll('[data-task-circle]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            var id = parseInt(btn.getAttribute('data-task-id'), 10);
+            if (!isNaN(id)) toggleDeliveryTaskById(id);
+          });
+        });
+        document.querySelectorAll('[data-task-delete]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            var id = parseInt(btn.getAttribute('data-task-id'), 10);
+            if (!isNaN(id)) deleteDeliveryTask(id);
+          });
+        });
+        document.querySelectorAll('.kanban-card[data-tid]').forEach(function (el) {
+          el.addEventListener('click', function (e) {
+            if (e.target.closest('.task-drag-handle')) return;
+            openTaskModal(parseInt(el.getAttribute('data-tid'), 10));
+          });
+        });
+        document.querySelectorAll('[data-open-task]').forEach(el => {
+          el.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openTaskModal(parseInt(el.getAttribute('data-open-task'), 10));
+          });
+        });
+        document.querySelectorAll('[data-stage-add]').forEach(btn => {
+          btn.addEventListener('click', async function () {
+            const sid = parseInt(btn.getAttribute('data-stage-add'), 10);
+            const input = document.querySelector('[data-stage-input="' + sid + '"]');
+            const title = (input.value || '').trim();
+            if (!title) return;
+            try {
+              await apiAuth('/api/delivery/tasks', 'POST', { project_id: PROJECT_ID, stage_id: sid, title: title });
+              input.value = '';
+              await loadTasks();
+              renderTab();
+              showToast('Задача добавлена', 'success');
+            } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+          });
+        });
+        const btnAddStage = document.getElementById('btnAddStage') || document.getElementById('btnAddFirstStage');
+        if (btnAddStage) btnAddStage.addEventListener('click', function () {
+          openCreateStageModal(PROJECT_ID);
+        });
+        const btnAddTask = document.getElementById('btnAddTask');
+        if (btnAddTask) btnAddTask.addEventListener('click', function () {
+          openCreateDeliveryTaskModal(PROJECT_ID, null);
+        });
+      }
+
+      // ─── TASK MODAL ────────────────────────────────────────────────
+      async function openTaskModal(tid) {
+        try {
+          currentTask = await apiAuth('/api/delivery/tasks/' + tid);
+        } catch (e) {
+          showToast('Ошибка: ' + e.message, 'error');
+          return;
+        }
+        renderTaskModal();
+        taskModal.style.display = 'flex';
+        taskModal.classList.add('visible');
+      }
+
+      function closeTaskModal() {
+        taskModal.style.display = 'none';
+        taskModal.classList.remove('visible');
+        currentTask = null;
+      }
+
+      function renderTaskModal() {
+        const t = currentTask;
+        if (!t) return;
+        const canEditFull = canEditProject;
+        const canEditExecutor = role === 'executor';
+        const canEditReviewer = role === 'reviewer' || canEditFull;
+
+        taskModalTitle.textContent = t.title;
+        const stageOptions = '<option value="">— этап —</option>' + stages.map(s => '<option value="' + s.id + '" ' + (s.id === t.stage_id ? 'selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
+        const execOptions = '<option value="">—</option>' + executors.map(e => '<option value="' + e.id + '" ' + (e.id === t.assignee_id ? 'selected' : '') + '>' + escapeHtml(e.name) + '</option>').join('');
+        const revOptions = '<option value="">—</option>' + executors.map(e => '<option value="' + e.id + '" ' + (e.id === t.reviewer_id ? 'selected' : '') + '>' + escapeHtml(e.name) + '</option>').join('');
+        const statusOptions = ALL_STATUSES.map(s => '<option ' + (s === t.status ? 'selected' : '') + '>' + s + '</option>').join('');
+
+        taskModalBody.innerHTML = (
+          '<div class="form-grid">' +
+            (canEditFull ? (
+              '<label class="full">Название <input type="text" id="tf-title" value="' + escapeHtml(t.title) + '" /></label>' +
+              '<label class="full">Описание <textarea id="tf-description">' + escapeHtml(t.description || '') + '</textarea></label>' +
+              '<label class="full">Цель <textarea id="tf-goal">' + escapeHtml(t.goal || '') + '</textarea></label>' +
+              '<label>Этап <select id="tf-stage_id">' + stageOptions + '</select></label>' +
+              '<label>Исполнитель <select id="tf-assignee_id">' + execOptions + '</select></label>' +
+              '<label>Ревьюер <select id="tf-reviewer_id">' + revOptions + '</select></label>'
+            ) : '') +
+            '<label>Статус <select id="tf-status"' + (!canEditFull && !canEditExecutor && !canEditReviewer ? ' disabled' : '') + '>' + statusOptions + '</select></label>' +
+            (canEditFull ? '<label>Приоритет <select id="tf-priority">' +
+              ['Critical','High','Medium','Low'].map(p => '<option ' + (p === t.priority ? 'selected' : '') + '>' + p + '</option>').join('') +
+            '</select></label>' : '') +
+            (canEditFull ? '<label>Дедлайн <input type="date" id="tf-deadline" value="' + escapeHtml(t.deadline || '') + '" /></label>' : '') +
+            ((canEditFull || canEditExecutor) ? (
+              '<label class="full">Ветка <input type="text" id="tf-branch_name" value="' + escapeHtml(t.branch_name || '') + '" /></label>' +
+              '<label>PR URL <input type="url" id="tf-pull_request_url" value="' + escapeHtml(t.pull_request_url || '') + '" /></label>' +
+              '<label>Preview URL <input type="url" id="tf-preview_url" value="' + escapeHtml(t.preview_url || '') + '" /></label>' +
+              '<label class="full">Комментарий исполнителя <textarea id="tf-result_comment">' + escapeHtml(t.result_comment || '') + '</textarea></label>'
+            ) : '') +
+            (canEditReviewer ? '<label class="full">Замечания ревьюера <textarea id="tf-review_comment">' + escapeHtml(t.review_comment || '') + '</textarea></label>' : '') +
+          '</div>' +
+          '<div class="section-label">Чеклист (' + t.checklist.filter(i => i.is_completed).length + '/' + t.checklist.length + ')</div>' +
+          '<div class="checklist-block">' +
+            t.checklist.map(item => (
+              '<div class="checklist-item' + (item.is_completed ? ' done' : '') + '">' +
+                '<input type="checkbox"' + (item.is_completed ? ' checked' : '') + ' data-cl-id="' + item.id + '" />' +
+                '<span>' + escapeHtml(item.title) + '</span>' +
+              '</div>'
+            )).join('') +
+          '</div>' +
+          (canEditFull ? (
+            '<div class="checklist-add">' +
+              '<input type="text" id="cl-new" placeholder="Новый пункт чеклиста" />' +
+              '<button class="btn btn-secondary btn-sm" id="cl-add-btn">+ Пункт</button>' +
+            '</div>'
+          ) : '') +
+          '<div class="section-label">Комментарии (' + t.comments.length + ')</div>' +
+          '<div class="comments-block">' +
+            (t.comments.length ? t.comments.map(c => (
+              '<div class="comment">' +
+                '<div class="comment-author">' + escapeHtml(c.author_name || 'Аноним') + ' · ' + escapeHtml(c.created_at || '') + '</div>' +
+                '<div>' + escapeHtml(c.body) + '</div>' +
+              '</div>'
+            )).join('') : '<div style="font-size:12px;color:var(--hq-muted)">Пока нет комментариев</div>') +
+          '</div>' +
+          '<div class="comment-add">' +
+            '<textarea id="cmt-new" placeholder="Добавить комментарий..."></textarea>' +
+            '<button class="btn btn-secondary btn-sm" id="cmt-add-btn" style="align-self:flex-start">Отправить</button>' +
+          '</div>' +
+          '<div class="modal-actions">' +
+            (canEditExecutor ? '<button class="btn btn-warn" id="btn-to-review">Сдать на проверку</button>' : '') +
+            (canEditReviewer ? '<button class="btn btn-success" id="btn-approve">✓ Одобрить</button>' : '') +
+            (canEditReviewer ? '<button class="btn btn-warn" id="btn-changes">↻ На доработку</button>' : '') +
+            (canEditFull ? '<button class="btn btn-danger" id="btn-delete-task">Удалить задачу</button>' : '') +
+            '<button class="btn btn-primary" id="btn-save-task">Сохранить</button>' +
+          '</div>'
+        );
+
+        bindTaskModalHandlers();
+      }
+
+      function bindTaskModalHandlers() {
+        document.querySelectorAll('[data-cl-id]').forEach(cb => {
+          cb.addEventListener('change', async function () {
+            try {
+              await apiAuth('/api/delivery/checklist/' + cb.getAttribute('data-cl-id'), 'PUT', { is_completed: cb.checked });
+              cb.parentElement.classList.toggle('done', cb.checked);
+            } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+          });
+        });
+
+        const clAddBtn = document.getElementById('cl-add-btn');
+        if (clAddBtn) clAddBtn.addEventListener('click', async function () {
+          const input = document.getElementById('cl-new');
+          const title = (input.value || '').trim();
+          if (!title) return;
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id + '/checklist', 'POST', { title: title });
+            await openTaskModal(currentTask.id);
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+
+        const cmtAddBtn = document.getElementById('cmt-add-btn');
+        if (cmtAddBtn) cmtAddBtn.addEventListener('click', async function () {
+          const ta = document.getElementById('cmt-new');
+          const body = (ta.value || '').trim();
+          if (!body) return;
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id + '/comments', 'POST', { body: body });
+            ta.value = '';
+            await openTaskModal(currentTask.id);
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+
+        const saveBtn = document.getElementById('btn-save-task');
+        if (saveBtn) saveBtn.addEventListener('click', () => saveTaskFromForm());
+
+        const toReview = document.getElementById('btn-to-review');
+        if (toReview) toReview.addEventListener('click', () => quickStatus('Review'));
+
+        const approve = document.getElementById('btn-approve');
+        if (approve) approve.addEventListener('click', () => quickStatus('Approved'));
+
+        const changes = document.getElementById('btn-changes');
+        if (changes) changes.addEventListener('click', () => quickStatus('Changes Requested'));
+
+        const delBtn = document.getElementById('btn-delete-task');
+        if (delBtn) delBtn.addEventListener('click', async function () {
+          if (!confirm('Удалить задачу?')) return;
+          try {
+            await apiAuth('/api/delivery/tasks/' + currentTask.id, 'DELETE');
+            closeTaskModal();
+            await loadTasks();
+            renderTab();
+          } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+        });
+      }
+
+      function readFormVal(id) {
+        const el = document.getElementById(id);
+        if (!el) return undefined;
+        if (el.tagName === 'SELECT' && el.value === '') return null;
+        if (el.type === 'number') return parseFloat(el.value);
+        return el.value;
+      }
+
+      async function saveTaskFromForm() {
+        const fields = ['title','description','goal','stage_id','assignee_id','reviewer_id',
+          'status','priority','deadline','branch_name','pull_request_url','preview_url',
+          'result_comment','review_comment'];
+        const payload = {};
+        fields.forEach(f => {
+          const val = readFormVal('tf-' + f);
+          if (val !== undefined) {
+            // stage/assignee/reviewer — int или null
+            if (f === 'stage_id' || f === 'assignee_id' || f === 'reviewer_id') {
+              payload[f] = val ? parseInt(val, 10) : null;
+            } else {
+              payload[f] = val;
+            }
+          }
+        });
+        try {
+          await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', payload);
+          showToast('Сохранено', 'success');
+          closeTaskModal();
+          await loadTasks();
+          renderTab();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      async function quickStatus(status) {
+        try {
+          await apiAuth('/api/delivery/tasks/' + currentTask.id, 'PUT', { status: status });
+          showToast('Статус: ' + status, 'success');
+          closeTaskModal();
+          await loadTasks();
+          renderTab();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      // ─── EDIT PROJECT MODAL ─────────────────────────────────────────
+      function toggleEditPercent() {
+        var t = document.getElementById('ep-owner-type');
+        var w = document.getElementById('ep-percent-wrap');
+        if (t && w) w.style.display = t.value === 'student' ? 'block' : 'none';
+      }
+
+      async function openEditProjectModal() {
+        let modal = document.getElementById('edit-project-modal');
+        if (!modal) {
+          modal = document.createElement('div');
+          modal.id = 'edit-project-modal';
+          modal.className = 'modal-overlay';
+          modal.innerHTML = (
+            '<div class="modal-card" style="max-width:600px">' +
+              '<button class="modal-close" data-epm-close>×</button>' +
+              '<div class="modal-title">Редактировать проект</div>' +
+              '<div class="form-grid">' +
+                '<label class="full">Название * <input type="text" id="ep-name" required /></label>' +
+                '<label>Тип <select id="ep-type">' +
+                  ['Лендинг','AI-ассистент','Telegram-бот','n8n-автоматизация','Сайт','Другое']
+                    .map(t => '<option>' + t + '</option>').join('') +
+                '</select></label>' +
+                '<label>Приоритет <select id="ep-priority">' +
+                  ['Critical','High','Medium','Low'].map(p => '<option>' + p + '</option>').join('') +
+                '</select></label>' +
+                '<label>Дедлайн <input type="date" id="ep-deadline" /></label>' +
+                '<label>Бюджет (₽) <input type="number" id="ep-budget" min="0" step="1000" /></label>' +
+                '<label class="full">Ученик <select id="ep-student"><option value="">— без ученика —</option></select></label>' +
+                '<label class="full">Чей проект <select id="ep-owner-type">' +
+                  '<option value="agency">Агентства</option>' +
+                  '<option value="student">Ученика (берём %)</option>' +
+                '</select></label>' +
+                '<label class="full" id="ep-percent-wrap" style="display:none">Наш % ' +
+                  '<input type="number" id="ep-percent" placeholder="0" min="0" max="100" step="0.01" />' +
+                '</label>' +
+                '<label class="full">GitHub repo URL <input type="url" id="ep-github" /></label>' +
+                '<label class="full">Vercel URL <input type="url" id="ep-vercel" /></label>' +
+                '<label class="full">Production URL <input type="url" id="ep-prod" /></label>' +
+                '<label class="full">Описание <textarea id="ep-desc"></textarea></label>' +
+              '</div>' +
+              '<div class="modal-actions">' +
+                '<button class="btn btn-secondary" data-epm-close>Отмена</button>' +
+                '<button class="btn btn-primary" id="ep-save">Сохранить</button>' +
+              '</div>' +
+            '</div>'
+          );
+          document.body.appendChild(modal);
+          modal.addEventListener('click', e => { if (e.target === modal) closeEditProjectModal(); });
+          modal.querySelectorAll('[data-epm-close]').forEach(b => b.addEventListener('click', closeEditProjectModal));
+          document.getElementById('ep-save').addEventListener('click', saveProjectEdit);
+          document.getElementById('ep-owner-type').addEventListener('change', toggleEditPercent);
+        }
+        // Заполнить значениями
+        document.getElementById('ep-name').value = project.name || '';
+        document.getElementById('ep-type').value = project.type || 'Другое';
+        document.getElementById('ep-priority').value = project.priority || 'Medium';
+        document.getElementById('ep-deadline').value = project.deadline || '';
+        document.getElementById('ep-budget').value = project.budget || 0;
+        document.getElementById('ep-github').value = project.github_repo_url || '';
+        document.getElementById('ep-vercel').value = project.vercel_project_url || '';
+        document.getElementById('ep-prod').value = project.production_url || '';
+        document.getElementById('ep-desc').value = project.description || '';
+
+        let studentsData = [];
+        try {
+          const sr = await apiAuth('/api/students');
+          studentsData = (sr && sr.students) || [];
+        } catch (_e) { studentsData = []; }
+
+        const studSel = document.getElementById('ep-student');
+        if (studSel) {
+          studSel.innerHTML = '<option value="">— без ученика —</option>' +
+            studentsData.map(s =>
+              '<option value="' + s.id + '"' + (String(project.student_id) === String(s.id) ? ' selected' : '') + '>' +
+              escapeHtml(s.name) + '</option>'
+            ).join('');
+        }
+
+        const ownerSel = document.getElementById('ep-owner-type');
+        if (ownerSel) ownerSel.value = project.owner_type || 'agency';
+        toggleEditPercent();
+        const pctInp = document.getElementById('ep-percent');
+        if (pctInp) pctInp.value = project.our_percent != null && project.our_percent !== '' ? project.our_percent : '';
+
+        modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:9999;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto';
+        modal.classList.add('visible');
+      }
+
+      function closeEditProjectModal() {
+        const m = document.getElementById('edit-project-modal');
+        if (!m) return;
+        m.style.display = 'none';
+        m.classList.remove('visible');
+      }
+
+      async function saveProjectEdit() {
+        const name = (document.getElementById('ep-name').value || '').trim();
+        if (!name) { showToast('Введите название', 'error'); return; }
+        var epSid = document.getElementById('ep-student');
+        var updates = {
+          name: name,
+          type: document.getElementById('ep-type').value,
+          priority: document.getElementById('ep-priority').value,
+          deadline: document.getElementById('ep-deadline').value || '',
+          budget: parseFloat(document.getElementById('ep-budget').value) || 0,
+          github_repo_url: document.getElementById('ep-github').value || '',
+          vercel_project_url: document.getElementById('ep-vercel').value || '',
+          production_url: document.getElementById('ep-prod').value || '',
+          description: document.getElementById('ep-desc').value || '',
+          student_id: epSid && epSid.value ? parseInt(epSid.value, 10) : null,
+          owner_type: (document.getElementById('ep-owner-type') || {}).value || 'agency',
+          our_percent: parseFloat((document.getElementById('ep-percent') || {}).value || '0', 10) || 0,
+        };
+        try {
+          await apiAuth('/api/delivery/projects/' + PROJECT_ID, 'PUT', updates);
+          await loadProject();
+          showToast('Проект обновлён', 'success');
+          closeEditProjectModal();
+          render();
+        } catch (e) { showToast('Ошибка: ' + e.message, 'error'); }
+      }
+
+      // ─── DATA LOADERS ──────────────────────────────────────────────
+      async function loadProject() {
+        project = await apiAuth('/api/delivery/projects/' + PROJECT_ID);
+      }
+      async function loadStages() {
+        const r = await apiAuth('/api/delivery/projects/' + PROJECT_ID + '/stages');
+        stages = (r && r.stages) || [];
+      }
+      async function loadTasks() {
+        const r = await apiAuth('/api/delivery/tasks?project_id=' + PROJECT_ID);
+        tasks = (r && r.tasks) || [];
+      }
+      async function loadExecutors() {
+        try {
+          const r = await apiAuth('/api/delivery/executors');
+          executors = (r && r.executors) || [];
+        } catch (e) { executors = []; }
+      }
+
+      // Modal close handlers
+      taskModal.querySelectorAll('[data-modal-close]').forEach(el => el.addEventListener('click', closeTaskModal));
+      taskModal.addEventListener('click', e => { if (e.target === taskModal) closeTaskModal(); });
+
+      // Часы
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (el) el.textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      tickClock(); setInterval(tickClock, 30000);
+
+      if (!PROJECT_ID) {
+        root.innerHTML = '<div style="padding:40px;text-align:center">Не указан проект. <a href="/hq/delivery.html">← к списку</a></div>';
+        return;
+      }
+
+      window.toggleDeliveryTaskById = toggleDeliveryTaskById;
+      window.deleteDeliveryTask = deleteDeliveryTask;
+
+      (async function init() {
+        try {
+          await Promise.all([loadProject(), loadStages(), loadTasks(), loadExecutors()]);
+          render();
+        } catch (e) {
+          root.innerHTML = '<div style="padding:40px;text-align:center;color:#f87171">Ошибка: ' + e.message + '</div>';
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

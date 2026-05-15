@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — Задачи</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <script src="/hq/hq-tasks.js"></script>
+  <style>
+    .tasks-page { display:flex; flex-direction:column; gap:12px; flex:1; min-height:0; padding:12px 16px 16px; }
+    .tasks-toolbar { display:grid; grid-template-columns:1.2fr 1.2fr auto auto auto auto; gap:8px; align-items:center; }
+    .task-quick-form { display:grid; grid-template-columns:1.2fr 1fr 0.95fr auto auto auto auto; gap:8px; padding:14px; border:1px solid var(--hq-border); border-radius:12px; background:var(--hq-card); }
+    .task-board { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; min-height:0; flex:1; }
+    .task-col { min-height:0; display:flex; flex-direction:column; background:var(--hq-card); border:1px solid var(--hq-border); border-radius:12px; overflow:hidden; }
+    .task-col-head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--hq-border); background:rgba(255,255,255,0.02); }
+    .task-col-body { padding:10px; overflow:auto; min-height:0; display:flex; flex-direction:column; gap:8px; }
+    .task-card { border:1px solid rgba(255,255,255,0.06); border-radius:10px; background:#111; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .task-card-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+    .task-card-title { font-size:13px; font-weight:600; color:var(--hq-text); line-height:1.45; }
+    .task-card-desc { font-size:12px; color:var(--hq-text-secondary); line-height:1.5; white-space:pre-wrap; }
+    .task-row-meta { display:flex; flex-wrap:wrap; gap:6px; }
+    .task-pill { display:inline-flex; align-items:center; gap:4px; padding:4px 8px; border-radius:999px; font-size:11px; background:rgba(255,255,255,0.06); color:var(--hq-text-secondary); }
+    .task-pill.is-new { color:#d1d5db; }
+    .task-pill.is-progress { color:#a855f7; }
+    .task-pill.is-review { color:#f59e0b; }
+    .task-pill.is-done { color:#22c55e; }
+    .task-pill.is-cancelled { color:#ef4444; }
+    .task-pill.prio-low { color:#9ca3af; }
+    .task-pill.prio-mid { color:#00d4ff; }
+    .task-pill.prio-high { color:#f59e0b; }
+    .task-pill.prio-critical { color:#ef4444; }
+    .task-pill.task-type { background:rgba(124,58,237,0.12); color:#c4b5fd; }
+    .task-actions { display:flex; flex-wrap:wrap; gap:6px; }
+    .task-actions .btn { min-height:30px; }
+    .task-response { border-top:1px solid rgba(255,255,255,0.06); padding-top:8px; font-size:12px; color:var(--hq-text-secondary); line-height:1.5; }
+    .task-empty { padding:16px; text-align:center; color:var(--hq-muted); font-size:12px; }
+    .tasks-summary { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+    .summary-card { border:1px solid var(--hq-border); border-radius:12px; background:var(--hq-card); padding:12px 14px; }
+    .summary-card strong { display:block; font-size:24px; color:var(--hq-cyan); }
+    .summary-card span { font-size:12px; color:var(--hq-text-secondary); text-transform:uppercase; }
+    @media (max-width:1180px) {
+      .task-board { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .task-quick-form { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); }
+      .tasks-toolbar { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width:780px) {
+      .task-board, .tasks-summary, .task-quick-form, .tasks-toolbar { grid-template-columns:1fr; }
+      .tasks-page { overflow:auto; }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.1</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Задачи</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+    <div class="hq-content tasks-page">
+      <div class="tasks-summary">
+        <div class="summary-card"><strong id="sumOpen">0</strong><span>Открытых</span></div>
+        <div class="summary-card"><strong id="sumToday">0</strong><span>На сегодня</span></div>
+        <div class="summary-card"><strong id="sumOverdue">0</strong><span>Просрочено</span></div>
+        <div class="summary-card"><strong id="sumAi">0</strong><span>В AI-команде</span></div>
+      </div>
+      <div class="task-quick-form">
+        <input id="taskTitle" class="hq-input" type="text" placeholder="Новая задача" />
+        <textarea id="taskDesc" class="hq-input" rows="1" placeholder="Описание / контекст"></textarea>
+        <select id="taskType" class="hq-input" title="Тип задачи">
+          <option value="задача" selected>Задача</option>
+          <option value="звонок">Звонок</option>
+          <option value="встреча">Встреча</option>
+          <option value="письмо">Письмо / переписка</option>
+          <option value="исследование">Исследование</option>
+          <option value="рутина">Рутина</option>
+        </select>
+        <select id="taskPriority" class="hq-input">
+          <option value="низкий">Низкий</option>
+          <option value="средний" selected>Средний</option>
+          <option value="высокий">Высокий</option>
+          <option value="критично">Критично</option>
+        </select>
+        <input id="taskExecutionDate" class="hq-input" type="date" title="Дата выполнения" />
+        <input id="taskDeadline" class="hq-input" type="date" title="Дедлайн" />
+        <div>
+          <label style="font-size:11px;color:var(--text-3,#606060);display:block;margin-bottom:4px">Проект (необязательно)</label>
+          <select id="ct-project" class="hq-input" title="CRM-проект"
+            style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 12px;font-size:13px">
+            <option value="">— без проекта —</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" id="btnCreateTask">Создать</button>
+      </div>
+      <div class="tasks-toolbar">
+        <input id="taskSearch" class="hq-input" type="search" placeholder="Поиск по задачам" />
+        <select id="taskFilter" class="hq-input">
+          <option value="all">Все задачи</option>
+          <option value="today">На сегодня</option>
+          <option value="overdue">Просроченные</option>
+          <option value="ai">Отправлены в AI</option>
+        </select>
+        <label class="hq-input" style="display:flex;flex-direction:column;gap:4px;background:transparent;border:none;padding:0;margin:0">
+          <span style="font-size:11px;color:var(--hq-text-secondary,#a0a0a0)">По проекту</span>
+          <select id="filter-project" class="hq-input"
+            style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:6px 10px;font-size:12px"
+            title="Фильтр по CRM-проекту">
+          <option value="">Все проекты</option>
+        </select>
+        </label>
+        <button type="button" class="btn btn-ghost" data-view="board">Канбан</button>
+        <button type="button" class="btn btn-ghost" data-view="list">Список</button>
+        <a class="btn btn-ghost" href="team.html">История AI</a>
+        <button type="button" class="btn btn-ghost" id="btnRefreshTasks">Обновить</button>
+      </div>
+      <div class="task-board" id="taskBoard"></div>
+    </div>
+  </div>
+  <div class="auth-overlay" id="authModal">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <input type="password" id="pwInput" placeholder="Пароль" />
+      <p id="authErr" style="color:var(--hq-error);font-size:12px;min-height:18px;margin:8px 0 0;"></p>
+      <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+  <div id="toast-container" class="toast-host"></div>
+  <script>
+    (function () {
+      const COLS = [
+        { key: 'новая', title: 'Новые' },
+        { key: 'в работе', title: 'В работе' },
+        { key: 'на проверке', title: 'На проверке' },
+        { key: 'готово', title: 'Готово' }
+      ];
+      const PW_KEY = 'hq_admin_password';
+      let allTasks = [];
+      let currentView = 'board';
+
+      function formatTaskTypeLabel(raw) {
+        var t = (raw == null || raw === '') ? 'задача' : String(raw).trim();
+        return t.charAt(0).toUpperCase() + t.slice(1);
+      }
+      function taskTypeOptionsHtml(selected) {
+        var opts = [
+          ['задача', 'Задача'],
+          ['звонок', 'Звонок'],
+          ['встреча', 'Встреча'],
+          ['письмо', 'Письмо / переписка'],
+          ['исследование', 'Исследование'],
+          ['рутина', 'Рутина']
+        ];
+        return opts.map(function (o) {
+          return '<option value="' + o[0] + '"' + (selected === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('');
+      }
+
+      function getPw() { return sessionStorage.getItem(PW_KEY) || ''; }
+      function toast(msg, type) { if (window.showToast) window.showToast(msg, type); }
+      function tickClock() {
+        const el = document.getElementById('hqClock');
+        if (!el) return;
+        const d = new Date();
+        el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+          d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      }
+      function isToday(value) { return value && String(value).slice(0, 10) === new Date().toISOString().slice(0, 10); }
+      function isOverdue(task) {
+        const deadline = window.HQTasks.getTaskDeadline(task);
+        return deadline && String(deadline).slice(0, 10) < new Date().toISOString().slice(0, 10) && task.status !== 'готово';
+      }
+      function filteredTasks() {
+        const q = (document.getElementById('taskSearch').value || '').toLowerCase().trim();
+        const mode = document.getElementById('taskFilter').value;
+        const projectFilter = (document.getElementById('filter-project') || {}).value || '';
+        return allTasks.filter(function (task) {
+          if (q) {
+            const blob = [task.title, task.description, task.response_preview, task.type, task.project_name].join(' ').toLowerCase();
+            if (!blob.includes(q)) return false;
+          }
+          if (projectFilter && String(task.project_id || '') !== String(projectFilter)) return false;
+          if (mode === 'today' && !isToday(window.HQTasks.getTaskExecutionDate(task))) return false;
+          if (mode === 'overdue' && !isOverdue(task)) return false;
+          if (mode === 'ai' && !(task.ai_task_id || task.ai_agent_name)) return false;
+          return true;
+        });
+      }
+      function updateSummary(tasks) {
+        document.getElementById('sumOpen').textContent = String(tasks.filter(t => !['готово', 'отменена'].includes(t.status)).length);
+        document.getElementById('sumToday').textContent = String(tasks.filter(t => isToday(window.HQTasks.getTaskExecutionDate(t))).length);
+        document.getElementById('sumOverdue').textContent = String(tasks.filter(isOverdue).length);
+        document.getElementById('sumAi').textContent = String(tasks.filter(t => t.ai_task_id || t.ai_agent_name).length);
+      }
+      function moveButtons(task) {
+        const out = [];
+        if (task.status === 'новая') out.push('<button type="button" class="btn btn-ghost btn-sm" onclick="moveTask(' + task.id + ', \'в работе\')">В работу</button>');
+        if (task.status === 'в работе') out.push('<button type="button" class="btn btn-ghost btn-sm" onclick="moveTask(' + task.id + ', \'на проверке\')">На проверку</button>');
+        if (task.status === 'на проверке') out.push('<button type="button" class="btn btn-ghost btn-sm" onclick="moveTask(' + task.id + ', \'готово\')">Готово</button>');
+        if (task.status !== 'готово') out.push('<button type="button" class="btn btn-ghost btn-sm" onclick="openEditTask(' + task.id + ')">Даты</button>');
+        return out.join('');
+      }
+      function renderTaskCard(task) {
+        const status = window.HQTasks.statusMeta(task.status);
+        const priority = window.HQTasks.priorityMeta(task.priority);
+        const aiLinked = task.ai_task_id || task.ai_agent_name;
+        const response = task.response_preview
+          ? '<div class="task-response"><strong style="color:var(--hq-text);display:block;margin-bottom:4px;">Ответ</strong>' + window.HQTasks.escapeHtml(task.response_preview) + '</div>'
+          : '';
+        const chatButtons = aiLinked
+          ? '<a class="btn btn-ghost btn-sm" href="team.html?agent=' + encodeURIComponent(task.ai_agent_name || 'chief_of_staff') + '&task=' + task.id + '">' + (task.response_preview ? 'Открыть ответ' : 'Перейти в диалог') + '</a>'
+          : '<button type="button" class="btn btn-primary btn-sm" onclick="sendTaskToTeam(' + task.id + ')">В AI-команду</button>';
+        const typeLabel = formatTaskTypeLabel(task.type);
+        const assigneeBlock = task.assignee_name
+          ? '<div style="display:flex;align-items:center;gap:4px;margin-top:4px"><div style="width:18px;height:18px;border-radius:50%;background:rgba(124,58,237,.3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#a855f7">' +
+            window.HQTasks.escapeHtml(String(task.assignee_name).charAt(0).toUpperCase()) +
+            '</div><span style="font-size:11px;color:#a0a0a0">' +
+            window.HQTasks.escapeHtml(task.assignee_name) +
+            '</span></div>'
+          : '';
+        const projectLine = task.project_name
+          ? '<div style="font-size:11px;color:#7c3aed;margin-top:4px">📁 ' + window.HQTasks.escapeHtml(task.project_name) + '</div>'
+          : '';
+        return '<article class="task-card">' +
+          '<div class="task-card-head"><div class="task-card-title">' + window.HQTasks.escapeHtml(task.title || '') + '</div>' +
+          '<a href="team.html?agent=' + encodeURIComponent(task.ai_agent_name || 'chief_of_staff') + '&task=' + task.id + '" title="Открыть в AI-команде"><i data-lucide="bot"></i></a></div>' +
+          (task.description ? '<div class="task-card-desc">' + window.HQTasks.escapeHtml(task.description) + '</div>' : '') +
+          projectLine +
+          '<div class="task-row-meta">' +
+          '<span class="task-pill task-type">' + window.HQTasks.escapeHtml(typeLabel) + '</span>' +
+          '<span class="task-pill ' + status.className + '">' + status.label + '</span>' +
+          '<span class="task-pill ' + priority.className + '">' + priority.label + '</span>' +
+          '<span class="task-pill">Дата выполнения: ' + window.HQTasks.formatDate(window.HQTasks.getTaskExecutionDate(task)) + '</span>' +
+          '<span class="task-pill">Дедлайн: ' + window.HQTasks.formatDate(window.HQTasks.getTaskDeadline(task)) + '</span>' +
+          (aiLinked ? '<span class="task-pill">AI: ' + window.HQTasks.escapeHtml(task.ai_agent_name || 'chief_of_staff') + '</span>' : '') +
+          '</div>' + assigneeBlock +
+          '<div class="task-actions">' + moveButtons(task) + chatButtons +
+          '<button type="button" class="btn btn-ghost btn-sm" onclick="openEditTask(' + task.id + ')" title="Редактировать">✏️</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" onclick="deleteTask(' + task.id + ')" title="Удалить" style="color:#ef4444;">🗑</button>' +
+          '</div>' + response + '</article>';
+      }
+      function renderTasks() {
+        const board = document.getElementById('taskBoard');
+        const tasks = filteredTasks();
+        updateSummary(tasks);
+        if (currentView === 'list') {
+          board.innerHTML = '<div class="task-col" style="grid-column:1 / -1;"><div class="task-col-head"><strong>Все задачи</strong><span>' + tasks.length + '</span></div><div class="task-col-body">' + tasks.map(renderTaskCard).join('') + '</div></div>';
+        } else {
+          board.innerHTML = COLS.map(function (col) {
+            const list = tasks.filter(function (task) { return (task.status || 'новая') === col.key; });
+              return '<section class="task-col"><div class="task-col-head"><strong>' + col.title + '</strong><span>' + list.length + '</span></div><div class="task-col-body">' + (list.length ? list.map(renderTaskCard).join('') : '<div class="task-empty">Нет задач — создайте новую или перетащите из других колонок.</div>') + '</div></section>';
+          }).join('');
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+      async function fetchTasks() {
+        allTasks = await window.HQTasks.loadTasks();
+        renderTasks();
+      }
+      async function createTask() {
+        const title = document.getElementById('taskTitle').value.trim();
+        if (!title) return;
+        const pidRaw = document.getElementById('ct-project').value.trim();
+        const project_id = pidRaw ? parseInt(pidRaw, 10) : null;
+        await window.HQTasks.createTask({
+          title: title,
+          description: document.getElementById('taskDesc').value.trim(),
+          type: document.getElementById('taskType').value || 'задача',
+          priority: document.getElementById('taskPriority').value,
+          execution_date: document.getElementById('taskExecutionDate').value || '',
+          deadline: document.getElementById('taskDeadline').value || '',
+          status: 'новая',
+          assignee: 'owner',
+          source: 'tasks_page',
+          project_id: project_id && !isNaN(project_id) ? project_id : null
+        });
+        document.getElementById('taskTitle').value = '';
+        document.getElementById('taskDesc').value = '';
+        document.getElementById('taskType').value = 'задача';
+        document.getElementById('taskExecutionDate').value = '';
+        document.getElementById('taskDeadline').value = '';
+        document.getElementById('ct-project').value = '';
+        toast('Задача создана', 'success');
+        await fetchTasks();
+      }
+
+      window.sendTaskToTeam = async function (taskId) {
+        try {
+          const result = await window.HQTasks.sendTaskToTeam(taskId, { agent_name: 'chief_of_staff' });
+          toast('Задача #' + result.legacy_task_id + ' ушла в AI-команду', 'success');
+          await fetchTasks();
+        } catch (err) {
+          toast(err.message || 'Ошибка отправки', 'error');
+        }
+      };
+      window.moveTask = async function (taskId, status) {
+        try {
+          await window.HQTasks.updateTask(taskId, { status: status });
+          await fetchTasks();
+        } catch (err) {
+          toast(err.message || 'Ошибка статуса', 'error');
+        }
+      };
+
+      window.deleteTask = async function (taskId) {
+        if (!confirm('Удалить задачу #' + taskId + '?')) return;
+        try {
+          var r = await window.HQTasks.request('/api/tasks-v2/' + taskId, { method: 'DELETE' });
+          if (!r.ok) throw new Error('Ошибка удаления');
+          toast('Задача удалена', 'success');
+          await fetchTasks();
+          loadTaskMetrics();
+        } catch (err) {
+          toast(err.message || 'Ошибка удаления', 'error');
+        }
+      };
+
+      window.openEditTask = async function (taskId) {
+        try {
+          var task = await window.HQTasks.getTask(taskId);
+          if (!task) {
+            toast('Задача не найдена', 'error');
+            return;
+          }
+          var users = [];
+          try {
+            var uj = await window.HQTasks.requestJson('/api/users');
+            users = uj.users || [];
+          } catch (e) {}
+
+          var existing = document.getElementById('edit-task-modal');
+          if (existing) existing.remove();
+
+          var usersOptions = users.filter(function (u) { return u.status === 'active'; }).map(function (u) {
+            return '<option value="' + u.id + '"' + (task.assignee_id === u.id ? ' selected' : '') + '>' +
+              window.HQTasks.escapeHtml(u.name) + ' (' + window.HQTasks.escapeHtml(u.role) + ')</option>';
+          }).join('');
+
+          var cl = task.checklist || [];
+          var checklistHtml = cl.map(function (item) {
+            var done = item.is_completed === 1 || item.is_completed === true;
+            return '<div class="checklist-item" data-id="' + item.id + '" style="display:flex;align-items:center;gap:8px;padding:5px 0">' +
+              '<input type="checkbox" ' + (done ? 'checked' : '') +
+              ' onchange="toggleChecklistItem(' + item.id + ', this.checked, ' + taskId + ')" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">' +
+              '<span style="font-size:13px;color:' + (done ? '#606060' : '#e0e0e0') + ';text-decoration:' + (done ? 'line-through' : 'none') + ';flex:1">' +
+              window.HQTasks.escapeHtml(item.title || '') +
+              '</span>' +
+              '<button type="button" onclick="deleteChecklistItem(' + item.id + ', ' + taskId + ')" style="background:none;border:none;color:#606060;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px">&times;</button></div>';
+          }).join('');
+          if (!checklistHtml) checklistHtml = '<div style="color:#606060;font-size:12px">Нет пунктов</div>';
+
+          var comments = task.comments || [];
+          var commentsHtml = comments.map(function (c) {
+            return '<div style="padding:8px;background:rgba(255,255,255,.03);border-radius:6px;margin-bottom:6px">' +
+              '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+              '<span style="font-size:11px;font-weight:600;color:#a855f7">' + window.HQTasks.escapeHtml(c.author_name || 'Пользователь') + '</span>' +
+              '<span style="font-size:10px;color:#606060">' + window.HQTasks.formatDateTime(c.created_at) + '</span></div>' +
+              '<div style="font-size:13px;color:#e0e0e0">' + window.HQTasks.escapeHtml(c.body || '') + '</div></div>';
+          }).join('');
+          if (!commentsHtml) commentsHtml = '<div style="color:#606060;font-size:12px">Нет комментариев</div>';
+
+          var tVal = (task.type && String(task.type).trim()) ? String(task.type).trim() : 'задача';
+          var knownTypes = ['задача', 'звонок', 'встреча', 'письмо', 'исследование', 'рутина'];
+          var typeSel = knownTypes.map(function (t) {
+            return '<option value="' + t + '"' + (tVal === t ? ' selected' : '') + '>' + window.HQTasks.escapeHtml(formatTaskTypeLabel(t)) + '</option>';
+          }).join('');
+          if (knownTypes.indexOf(tVal) < 0) {
+            typeSel = '<option value="' + window.HQTasks.escapeHtml(tVal).replace(/"/g, '&quot;') + '" selected>' +
+              window.HQTasks.escapeHtml(formatTaskTypeLabel(tVal)) + '</option>' + typeSel;
+          }
+
+          var dueVal = (window.HQTasks.getTaskDeadline(task) || '').slice(0, 10);
+
+          var modal = document.createElement('div');
+          modal.id = 'edit-task-modal';
+          modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+
+          modal.innerHTML =
+            '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:14px;width:580px;max-width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
+            '<div style="padding:20px 24px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0">' +
+            '<h3 style="margin:0;font-size:16px;font-weight:600;color:var(--hq-text);">Редактировать задачу</h3>' +
+            '<button type="button" onclick="document.getElementById(\'edit-task-modal\').remove()" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;color:#a0a0a0;width:28px;height:28px;cursor:pointer;font-size:18px">&times;</button></div>' +
+            '<div style="padding:16px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px">' +
+            '<input id="et-title" class="hq-input" style="background:#111;border:1px solid rgba(255,255,255,.1)" placeholder="Название *" value="' +
+            window.HQTasks.escapeHtml(task.title || '').replace(/"/g, '&quot;') + '" />' +
+            '<textarea id="et-desc" rows="2" placeholder="Описание" style="background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:10px 12px;font-size:13px;width:100%;box-sizing:border-box;font-family:inherit">' +
+            window.HQTasks.escapeHtml(task.description || '') + '</textarea>' +
+            '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Тип</label>' +
+            '<select id="et-type" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:13px">' + typeSel + '</select></div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+            '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Статус</label>' +
+            '<select id="et-status" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:13px">' +
+            ['новая', 'в работе', 'на проверке', 'готово', 'отменена'].map(function (s) {
+              return '<option value="' + s + '"' + (task.status === s ? ' selected' : '') + '>' + s + '</option>';
+            }).join('') + '</select></div>' +
+            '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Приоритет</label>' +
+            '<select id="et-priority" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:13px">' +
+            ['низкий', 'средний', 'высокий', 'критично'].map(function (p) {
+              return '<option value="' + p + '"' + (task.priority === p ? ' selected' : '') + '>' + p + '</option>';
+            }).join('') + '</select></div></div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+            '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Исполнитель</label>' +
+            '<select id="et-assignee" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:13px">' +
+            '<option value="">Не назначен</option>' + usersOptions + '</select></div>' +
+            '<div><label style="font-size:11px;color:#606060;display:block;margin-bottom:4px">Дедлайн</label>' +
+            '<input id="et-due" type="date" value="' + dueVal + '" style="width:100%;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:9px 10px;font-size:13px" /></div></div>' +
+            '<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+            '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060">Чеклист</label>' +
+            '<span style="font-size:11px;color:#a855f7" id="et-checklist-stats">' +
+            String(cl.filter(function (i) { return i.is_completed === 1 || i.is_completed === true; }).length) + '/' + String(cl.length) +
+            '</span></div>' +
+            '<div id="et-checklist-list">' + checklistHtml + '</div>' +
+            '<div style="display:flex;gap:6px;margin-top:8px">' +
+            '<input id="et-new-checklist" placeholder="Новый пункт..." style="flex:1;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:7px 10px;font-size:12px" />' +
+            '<button type="button" onclick="addChecklistItem(' + taskId + ')" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:8px;color:#a855f7;padding:7px 12px;cursor:pointer;font-size:12px">+ Добавить</button></div></div>' +
+            '<div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#606060;display:block;margin-bottom:8px">Комментарии</label>' +
+            '<div id="et-comments-list">' + commentsHtml + '</div>' +
+            '<div style="display:flex;gap:6px;margin-top:8px">' +
+            '<input id="et-new-comment" placeholder="Написать комментарий..." style="flex:1;background:#111;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;padding:7px 10px;font-size:12px" />' +
+            '<button type="button" onclick="addTaskComment(' + taskId + ')" style="background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.3);border-radius:8px;color:#a855f7;padding:7px 12px;cursor:pointer;font-size:12px">Отправить</button>' +
+            '</div></div></div>' +
+            '<div style="padding:0 24px 20px;display:flex;gap:8px;flex-shrink:0">' +
+            '<button type="button" onclick="saveTaskEdit(' + taskId + ')" style="flex:1;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;border-radius:8px;color:#fff;padding:11px;font-size:14px;font-weight:600;cursor:pointer">Сохранить</button>' +
+            '<button type="button" onclick="document.getElementById(\'edit-task-modal\').remove()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#a0a0a0;padding:11px 18px;cursor:pointer">Отмена</button>' +
+            '</div></div>';
+
+          modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+          document.body.appendChild(modal);
+
+          var nk = document.getElementById('et-new-checklist');
+          if (nk) {
+            nk.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter') { e.preventDefault(); window.addChecklistItem(taskId); }
+            });
+          }
+          var nc = document.getElementById('et-new-comment');
+          if (nc) {
+            nc.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter') { e.preventDefault(); window.addTaskComment(taskId); }
+            });
+          }
+        } catch (err) {
+          toast('Ошибка загрузки задачи: ' + (err.message || 'ошибка'), 'error');
+        }
+      };
+
+      window.saveTaskEdit = async function (taskId) {
+        var title = document.getElementById('et-title') ? document.getElementById('et-title').value.trim() : '';
+        if (!title) { toast('Введите название', 'error'); return; }
+        var assigneeVal = document.getElementById('et-assignee') ? document.getElementById('et-assignee').value : '';
+        var d = document.getElementById('et-due') ? document.getElementById('et-due').value || '' : '';
+        try {
+          await window.HQTasks.updateTask(taskId, {
+            title: title,
+            description: document.getElementById('et-desc') ? document.getElementById('et-desc').value || '' : '',
+            type: document.getElementById('et-type') ? document.getElementById('et-type').value || 'задача' : 'задача',
+            status: document.getElementById('et-status') ? document.getElementById('et-status').value || 'новая' : 'новая',
+            priority: document.getElementById('et-priority') ? document.getElementById('et-priority').value || 'средний' : 'средний',
+            due_date: d,
+            deadline: d,
+            execution_date: d,
+            assignee_id: assigneeVal ? parseInt(assigneeVal, 10) : null
+          });
+          var modal = document.getElementById('edit-task-modal');
+          if (modal) modal.remove();
+          toast('Задача обновлена', 'success');
+          await fetchTasks();
+          loadTaskMetrics();
+        } catch (e) {
+          toast(e.message || 'Ошибка сохранения', 'error');
+        }
+      };
+
+      window.addChecklistItem = async function (taskId) {
+        var input = document.getElementById('et-new-checklist');
+        var ttl = input && input.value ? input.value.trim() : '';
+        if (!ttl) return;
+        try {
+          var item = await (async function () {
+            var opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: ttl }) };
+            var response = await window.HQTasks.request('/api/tasks-v2/' + taskId + '/checklist', opts);
+            var data = await response.json().catch(function () { return {}; });
+            if (!response.ok) throw new Error(data.detail || data.message || 'Ошибка');
+            return data;
+          })();
+          if (input) input.value = '';
+          var list = document.getElementById('et-checklist-list');
+          if (list) {
+            var emptyMsg = list.querySelector('div[style*="Нет пунктов"]');
+            if (emptyMsg) emptyMsg.remove();
+            var div = document.createElement('div');
+            div.className = 'checklist-item';
+            div.dataset.id = String(item.id);
+            div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px 0';
+            div.innerHTML =
+              '<input type="checkbox" onchange="toggleChecklistItem(' + item.id + ', this.checked, ' + taskId + ')" style="width:15px;height:15px;cursor:pointer;accent-color:#7c3aed">' +
+              '<span style="font-size:13px;color:#e0e0e0;flex:1">' + window.HQTasks.escapeHtml(item.title || '') + '</span>' +
+              '<button type="button" onclick="deleteChecklistItem(' + item.id + ', ' + taskId + ')" style="background:none;border:none;color:#606060;cursor:pointer;font-size:14px;padding:2px 6px">&times;</button>';
+            list.appendChild(div);
+          }
+          toast('Пункт добавлен', 'success');
+        } catch (e) {
+          toast(e.message || 'Ошибка', 'error');
+        }
+      };
+
+      window.toggleChecklistItem = async function (itemId, isCompleted, taskId) {
+        try {
+          var opts = { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_completed: !!isCompleted }) };
+          var response = await window.HQTasks.request('/api/tasks-v2/checklist/' + itemId, opts);
+          var data = await response.json().catch(function () { return {}; });
+          if (!response.ok) throw new Error(data.detail || data.message || 'Ошибка');
+          var span = document.querySelector('.checklist-item[data-id="' + itemId + '"] span');
+          if (span) {
+            span.style.color = isCompleted ? '#606060' : '#e0e0e0';
+            span.style.textDecoration = isCompleted ? 'line-through' : 'none';
+          }
+        } catch (e) {
+          toast(e.message || 'Ошибка', 'error');
+        }
+      };
+
+      window.deleteChecklistItem = async function (itemId, taskId) {
+        try {
+          var response = await window.HQTasks.request('/api/tasks-v2/checklist/' + itemId, { method: 'DELETE' });
+          if (!response.ok) throw new Error('Ошибка удаления');
+          var row = document.querySelector('.checklist-item[data-id="' + itemId + '"]');
+          if (row) row.remove();
+          toast('Пункт удалён', 'success');
+        } catch (e) {
+          toast(e.message || 'Ошибка', 'error');
+        }
+      };
+
+      window.addTaskComment = async function (taskId) {
+        var input = document.getElementById('et-new-comment');
+        var body = input && input.value ? input.value.trim() : '';
+        if (!body) return;
+        try {
+          var opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: body }) };
+          var response = await window.HQTasks.request('/api/tasks-v2/' + taskId + '/comments', opts);
+          var comment = await response.json().catch(function () { return {}; });
+          if (!response.ok) throw new Error(comment.detail || comment.message || 'Ошибка');
+          if (input) input.value = '';
+          var list = document.getElementById('et-comments-list');
+          if (list) {
+            var emptyMsg = list.querySelector('div[style*="Нет комментариев"]');
+            if (emptyMsg) emptyMsg.remove();
+            var div = document.createElement('div');
+            div.style.cssText = 'padding:8px;background:rgba(255,255,255,.03);border-radius:6px;margin-bottom:6px';
+            div.innerHTML =
+              '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+              '<span style="font-size:11px;font-weight:600;color:#a855f7">' +
+              window.HQTasks.escapeHtml(comment.author_name || 'Вы') +
+              '</span><span style="font-size:10px;color:#606060">только что</span></div>' +
+              '<div style="font-size:13px;color:#e0e0e0">' + window.HQTasks.escapeHtml(comment.body || '') + '</div>';
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+          }
+          toast('Комментарий добавлен', 'success');
+        } catch (e) {
+          toast(e.message || 'Ошибка', 'error');
+        }
+      };
+
+      async function loadTaskMetrics() {
+        try {
+          var r = await window.HQTasks.request('/api/tasks-v2/metrics');
+          if (!r.ok) return;
+          var m = await r.json();
+          var set = function (id, val) { var el = document.getElementById(id); if (el) el.textContent = String(val); };
+          set('sumOpen', m.open || 0);
+          set('sumToday', m.today || 0);
+          set('sumOverdue', m.overdue || 0);
+          set('sumAi', m.in_team || 0);
+          var ovEl = document.getElementById('sumOverdue');
+          if (ovEl && (m.overdue || 0) > 0) ovEl.style.color = '#ef4444';
+          else if (ovEl) ovEl.style.color = '';
+        } catch (e) {}
+      }
+
+      async function hydrateProjectSelects() {
+        try {
+          var json = await window.HQTasks.requestJson('/api/projects');
+          var list = json.projects || [];
+          var opts = list.map(function (p) {
+            return '<option value="' + String(p.id) + '">' + window.HQTasks.escapeHtml(p.name || '') + '</option>';
+          }).join('');
+          var ct = document.getElementById('ct-project');
+          if (ct) ct.innerHTML = '<option value="">— без проекта —</option>' + opts;
+          var fp = document.getElementById('filter-project');
+          if (fp) {
+            var cur = fp.value;
+            fp.innerHTML = '<option value="">Все проекты</option>' + opts;
+            if (cur && list.some(function (p) { return String(p.id) === String(cur); })) fp.value = cur;
+          }
+        } catch (e) {}
+      }
+
+      window.filterTasks = function () {
+        renderTasks();
+      };
+
+      document.getElementById('taskSearch').addEventListener('input', renderTasks);
+      document.getElementById('taskFilter').addEventListener('change', renderTasks);
+      var fpEl = document.getElementById('filter-project');
+      if (fpEl) fpEl.addEventListener('change', renderTasks);
+      document.getElementById('btnRefreshTasks').addEventListener('click', fetchTasks);
+      document.getElementById('btnCreateTask').addEventListener('click', createTask);
+      document.getElementById('taskTitle').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          createTask();
+        }
+      });
+      document.querySelectorAll('[data-view]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          currentView = btn.dataset.view;
+          renderTasks();
+        });
+      });
+      document.getElementById('btnAuth').onclick = async function () {
+        sessionStorage.setItem(PW_KEY, document.getElementById('pwInput').value.trim());
+        const response = await window.HQTasks.request('/api/status');
+        if (response.ok) {
+          document.getElementById('authModal').classList.remove('is-open');
+          await hydrateProjectSelects();
+          await fetchTasks();
+        } else {
+          document.getElementById('authErr').textContent = 'Неверный пароль';
+          sessionStorage.removeItem(PW_KEY);
+        }
+      };
+
+      tickClock();
+      setInterval(tickClock, 1000);
+      if (!getPw()) {
+        document.getElementById('authModal').classList.add('is-open');
+      } else {
+        document.getElementById('authModal').classList.remove('is-open');
+        hydrateProjectSelects();
+        fetchTasks();
+        loadTaskMetrics();
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    })();
+  </script>
+  <script src="hq-global.js"></script>
+  <script src="hq-mobile.js"></script>
+</body>
+</html>

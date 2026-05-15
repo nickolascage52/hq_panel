@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>AI Delivery — База знаний</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <style>
+    .drop { border:2px dashed var(--hq-border); border-radius:12px; padding:24px; text-align:center; margin-bottom:16px; }
+    input[type="file"] { font-size:16px; max-width:100%; }
+    .hq-input { font-size:16px; }
+    #list { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status online"><span class="status-dot"></span><span class="status-label">Онлайн</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">База знаний</span>
+      <div class="topbar-right"><div class="topbar-avatar">А</div></div>
+    </header>
+    <div class="hq-content">
+      <div class="drop" id="drop">Перетащите файлы (pdf, docx, txt, md, xlsx, csv) или выберите
+        <input type="file" id="f" multiple style="margin-top:12px" accept=".pdf,.docx,.txt,.md,.xlsx,.csv" />
+      </div>
+      <input type="search" class="hq-input" id="sq" placeholder="Поиск по базе…" style="width:100%;max-width:400px;margin-bottom:12px" />
+      <div id="searchOut"></div>
+      <div id="list"></div>
+    </div>
+  </div>
+  <div class="auth-overlay" id="authModal" style="display:none"><div class="auth-card">
+    <input type="password" id="pwInput" class="hq-input" style="width:100%" placeholder="Пароль" />
+    <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:8px">Войти</button>
+  </div></div>
+
+  <script>
+(function () {
+  var PW_KEY = 'hq_admin_password';
+  function getPw() { return sessionStorage.getItem(PW_KEY) || ''; }
+
+  async function legacyFetch(url, opts) {
+    opts = opts || {};
+    var authH = typeof window.hqAuthHeaders === 'function'
+      ? window.hqAuthHeaders()
+      : { 'X-Admin-Password': getPw() };
+    var r = await fetch(url, Object.assign({}, opts, {
+      headers: Object.assign({}, authH, opts.headers || {}),
+    }));
+    if (r.status === 401 && !/\/hq\/login(\.html)?$/.test(location.pathname)) {
+      location.href = '/hq/login.html?next=' + encodeURIComponent(location.pathname);
+    }
+    return r;
+  }
+  window.hqApi = legacyFetch;
+
+  function escapeHtml(s) {
+    return String(s === undefined || s === null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderFileCard(f) {
+    var nameDisp = (f.original_name || f.filename || 'Файл') + '';
+    var ext = 'FILE';
+    try {
+      var parts = nameDisp.split('.');
+      if (parts.length > 1) ext = (parts.pop() || 'FILE').toUpperCase();
+    } catch (e) {}
+    var extColors = { PDF: '#ef4444', DOCX: '#3b82f6', TXT: '#22c55e', MD: '#a855f7', XLSX: '#f59e0b', CSV: '#06b6d4' };
+    var extColor = extColors[ext] || '#606060';
+    var st = (f.status || '').toLowerCase();
+    var statusDot =
+      st === 'ready' ? { color: '#22c55e', label: 'Готов' }
+      : st === 'processing' ? { color: '#f59e0b', label: 'Обработка…' }
+      : st === 'error' ? { color: '#ef4444', label: 'Ошибка' }
+      : { color: '#606060', label: f.status || '—' };
+
+    var sizeKb = f.file_size ? Math.round(Number(f.file_size) / 1024) : null;
+    var wordsCount = null;
+    if (f.content_text && String(f.content_text).trim()) {
+      wordsCount = String(f.content_text).split(/\s+/).filter(Boolean).length;
+    }
+
+    var viewBtn =
+      st === 'ready'
+        ? '<button type="button" data-kc-view="' + f.id + '" style="background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);' +
+          'border-radius:6px;color:#a855f7;padding:5px 10px;cursor:pointer;font-size:12px">👁 Просмотр</button>'
+        : '';
+
+    return (
+      '<div style="background:#1a1a1a;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:14px;' +
+      'display:flex;align-items:center;gap:12px">' +
+      '<div style="width:40px;height:40px;border-radius:8px;flex-shrink:0;background:' + extColor + '18;border:1px solid ' + extColor + '35;' +
+      'display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:' + extColor + '">' +
+      escapeHtml(ext) + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:500;color:#e0e0e0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+      escapeHtml(nameDisp) + '</div>' +
+      '<div style="font-size:11px;color:#606060;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<span style="color:' + statusDot.color + '">● ' + escapeHtml(statusDot.label) + '</span>' +
+      (sizeKb ? '<span>' + sizeKb + ' KB</span>' : '') +
+      (wordsCount ? '<span>' + wordsCount.toLocaleString('ru-RU') + ' слов</span>' : '') +
+      '</div>' +
+      (f.description
+        ? '<div style="font-size:11px;color:#606060;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+          escapeHtml(f.description) + '</div>'
+        : '') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' + viewBtn +
+      '<button type="button" data-kc-del="' + f.id + '" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);' +
+      'border-radius:6px;color:#ef4444;padding:5px 10px;cursor:pointer;font-size:12px">Удалить</button></div></div>'
+    );
+  }
+
+  async function loadList() {
+    var root = document.getElementById('list');
+    var r = await legacyFetch('/api/knowledge');
+    if (!r.ok) return;
+    var j = await r.json();
+    var rows = j.files || [];
+    root.innerHTML = rows.map(renderFileCard).join('') || '<p>Файлов нет</p>';
+  }
+
+  window.copyFileContent = function () {
+    var el = document.getElementById('file-content-area');
+    var txt = el ? el.textContent : '';
+    if (!txt || txt.indexOf('Загрузка') !== -1) return;
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === 'function'
+    ) {
+      navigator.clipboard.writeText(txt).then(
+        function () { if (typeof showToast === 'function') showToast('Скопировано в буфер', 'success'); },
+        function () { if (typeof showToast === 'function') showToast('Не удалось скопировать', 'error'); }
+      );
+    }
+  };
+
+  window.viewFileContent = async function (fileId) {
+    var prev = document.getElementById('file-view-modal');
+    if (prev) prev.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'file-view-modal';
+    modal.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px);z-index:1000;display:flex;' +
+      'align-items:center;justify-content:center;padding:20px';
+
+    modal.innerHTML =
+      '<div style="background:#1a1a1a;border:1px solid rgba(124,58,237,.3);border-radius:14px;width:720px;max-width:100%;' +
+      'max-height:85vh;display:flex;flex-direction:column;overflow:hidden">' +
+      '<div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;' +
+      'justify-content:space-between;align-items:center;flex-shrink:0">' +
+      '<div><div style="font-size:15px;font-weight:600" id="file-view-title-name">Файл</div>' +
+      '<div style="font-size:11px;color:#606060;margin-top:2px">Содержимое файла</div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+      '<button type="button" onclick="copyFileContent()" style="background:rgba(255,255,255,.06);' +
+      'border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#a0a0a0;padding:5px 10px;cursor:pointer;font-size:12px">📋 Копировать</button>' +
+      '<button type="button" class="kc-modal-close-x" style="background:rgba(255,255,255,.06);border:none;border-radius:6px;' +
+      'color:#a0a0a0;width:28px;height:28px;cursor:pointer;font-size:18px">×</button></div></div>' +
+      '<div style="flex:1;overflow-y:auto;padding:16px 20px">' +
+      '<div id="file-content-area" style="font-size:13px;line-height:1.6;color:#e0e0e0;white-space:pre-wrap;' +
+      "font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:#111;border-radius:8px;" +
+      'padding:14px;border:1px solid rgba(255,255,255,.06)">' +
+      '<div style="color:#606060;text-align:center;padding:20px">⏳ Загрузка…</div></div></div>' +
+      '<div style="padding:10px 20px;border-top:1px solid rgba(255,255,255,.06);display:flex;' +
+      'justify-content:space-between;align-items:center;flex-shrink:0">' +
+      '<span id="file-content-stats" style="font-size:11px;color:#606060"></span>' +
+      '<button type="button" class="kc-modal-close" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);' +
+      'border-radius:8px;color:#a0a0a0;padding:7px 14px;cursor:pointer;font-size:13px">Закрыть</button></div>' +
+      '</div>';
+
+    modal.addEventListener('click', function (e) { if (e.target === modal) modal.remove(); });
+    modal.querySelectorAll('.kc-modal-close, .kc-modal-close-x').forEach(function (btn) {
+      btn.addEventListener('click', function () { modal.remove(); });
+    });
+    document.body.appendChild(modal);
+
+    if (typeof window.apiAuth !== 'function') {
+      document.getElementById('file-content-area').innerHTML =
+        '<div style="color:#ef4444">Нет авторизации (apiAuth)</div>';
+      return;
+    }
+
+    try {
+      var file = await window.apiAuth('/api/knowledge/' + fileId);
+      var tn = document.getElementById('file-view-title-name');
+      if (tn) tn.textContent = (file.original_name || file.filename || 'Файл') + '';
+      var content = file.content_text != null ? String(file.content_text) : '';
+      var area = document.getElementById('file-content-area');
+      var stats = document.getElementById('file-content-stats');
+      if (!content.trim()) {
+        area.innerHTML =
+          '<div style="color:#606060;text-align:center;padding:20px">Содержимое недоступно или файл не был проиндексирован.' +
+          '<br/><small>Статус: ' + escapeHtml(String(file.status || 'unknown')) + '</small></div>';
+        return;
+      }
+      area.textContent = content;
+      var words = content.split(/\s+/).filter(Boolean).length;
+      stats.textContent = words.toLocaleString('ru-RU') + ' слов · ' + content.length.toLocaleString('ru-RU') + ' символов';
+    } catch (e) {
+      var fe = document.getElementById('file-content-area');
+      if (fe)
+        fe.innerHTML = '<div style="color:#ef4444">Ошибка загрузки: ' + escapeHtml(e.message || '') + '</div>';
+    }
+  };
+
+  document.getElementById('list').addEventListener('click', function (e) {
+    var vw = e.target.closest('[data-kc-view]');
+    if (vw) {
+      e.preventDefault();
+      window.viewFileContent(parseInt(vw.getAttribute('data-kc-view'), 10));
+      return;
+    }
+    var del = e.target.closest('[data-kc-del]');
+    if (del) {
+      e.preventDefault();
+      var id = del.getAttribute('data-kc-del');
+      (async function () {
+        await legacyFetch('/api/knowledge/' + id, { method: 'DELETE' });
+        loadList();
+      })();
+    }
+  });
+
+  async function uploadFiles(files) {
+    var n = 0;
+    for (var i = 0; i < files.length && n < 20; i++) {
+      var fd = new FormData();
+      fd.append('file', files[i]);
+      await legacyFetch('/api/knowledge/upload', { method: 'POST', body: fd });
+      n++;
+    }
+    loadList();
+  }
+
+  document.getElementById('f').onchange = function (e) {
+    uploadFiles([].slice.call(e.target.files));
+  };
+  document.getElementById('drop').ondragover = function (e) { e.preventDefault(); };
+  document.getElementById('drop').ondrop = function (e) {
+    e.preventDefault();
+    uploadFiles([].slice.call(e.dataTransfer.files));
+  };
+
+  document.getElementById('sq').addEventListener('input', function () {
+    clearTimeout(window._sk);
+    window._sk = setTimeout(async function () {
+      var q = document.getElementById('sq').value.trim();
+      if (q.length < 2) { document.getElementById('searchOut').innerHTML = ''; return; }
+      var r = await legacyFetch('/api/knowledge/search?q=' + encodeURIComponent(q));
+      if (!r.ok) return;
+      var j = await r.json();
+      document.getElementById('searchOut').innerHTML = (j.results || []).map(function (x) {
+        return '<div style="padding:10px;margin-bottom:6px;font-size:13px;background:rgba(255,255,255,.03);border-radius:8px">' +
+          escapeHtml(x.original_name || '') + ' — ' + escapeHtml((x.preview || '').slice(0, 200)) + '</div>';
+      }).join('');
+    }, 300);
+  });
+
+  document.getElementById('btnAuth').onclick = async function () {
+    sessionStorage.setItem(PW_KEY, document.getElementById('pwInput').value);
+    if ((await legacyFetch('/api/status')).ok) {
+      document.getElementById('authModal').style.display = 'none';
+      loadList();
+      if (window.HQV3) {
+        window.HQV3.initTopbar();
+        window.HQV3.initFab();
+      }
+    }
+  };
+
+  if (!getPw()) document.getElementById('authModal').style.display = 'flex';
+  else loadList();
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+})();
+  </script>
+  <script src="hq-global.js"></script>
+  <script src="hq-mobile.js"></script>
+</body>
+</html>

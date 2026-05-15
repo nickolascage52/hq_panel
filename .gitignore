@@ -1,0 +1,86 @@
+# ─── Python ─────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env-venv/
+
+# ─── Node (Playwright tests only) ───────────────────────
+node_modules/
+
+# ─── Environment / Secrets ──────────────────────────────
+# .env contains real secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+# .env.example STAYS in repo with placeholders only
+
+# Sprint 1 temporary worksheet (created in T-1-005, removed in T-1-010)
+docs/secrets-rotation-checklist.md
+
+# ─── Databases ──────────────────────────────────────────
+# Catches agency.db, _test_p6.db, ruvector.db, and any future DBs
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+_test_*.db
+backups/
+
+# Old archive (deprecated)
+ai_agency.zip
+
+# ─── Knowledge base raw files (large extracts) ──────────
+ai_agency/data/knowledge/*
+!ai_agency/data/knowledge/.gitkeep
+
+# ─── Pipeline workspaces (Sprint 2+, can be large) ──────
+ai_agency/pipeline_workspaces/
+
+# ─── Logs ───────────────────────────────────────────────
+*.log
+logs/
+/var/log/
+
+# ─── OS ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── IDE ────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── Claude Code local state ────────────────────────────
+# .claude/settings.json (shared config) STAYS in repo
+.claude/settings.local.json
+.claude/scheduled_tasks*
+.claude/cache/
+
+# ─── Remember plugin local data ─────────────────────────
+.remember/
+
+# ─── Playwright artifacts ───────────────────────────────
+ai_agency/tests/test-results/
+ai_agency/tests/playwright-report/
+
+# ─── Temp / build ───────────────────────────────────────
+*.tmp
+*.bak
+.cache/
+dist/
+build/

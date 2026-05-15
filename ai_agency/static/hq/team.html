@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — AI Команда</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/hq/_components.js"></script>
+  <script src="/hq/hq-tasks.js"></script>
+  <script src="hq-global.js"></script>
+  <style>
+    .hq-team-content { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 !important; overflow: hidden; }
+    .team-chat-shell { flex: 1; display: flex; min-height: 0; overflow: hidden; border-top: 1px solid var(--hq-border); }
+    .agent-list {
+      width: 280px; flex-shrink: 0; border-right: 1px solid var(--hq-border);
+      overflow-y: auto; display: flex; flex-direction: column; background: var(--hq-sidebar-bg);
+    }
+    .agent-search-wrap { padding: 10px 12px; flex-shrink: 0; border-bottom: 1px solid var(--hq-border); }
+    .agent-search {
+      width: 100%; padding: 8px 12px; border-radius: var(--hq-radius-btn);
+      border: 1px solid var(--hq-border); background: #141414; color: var(--hq-text);
+      font-family: inherit; font-size: 13px;
+    }
+    .agent-items { flex: 1; overflow-y: auto; padding: 4px 0 12px; min-height: 0; }
+    .dept-label {
+      padding: 10px 16px 4px; font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em; color: var(--hq-muted);
+    }
+    .agent-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; margin: 2px 8px; border-radius: var(--hq-radius-btn);
+      cursor: pointer; transition: background 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+    .agent-item:hover { background: rgba(255,255,255,0.04); }
+    .agent-item.active { background: rgba(124,58,237,0.15); border-left-color: var(--hq-accent); }
+    .agent-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--hq-success); flex-shrink: 0; }
+    .agent-avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 11px; color: #fff;
+    }
+    .agent-info { flex: 1; min-width: 0; }
+    .agent-name { font-size: 13px; font-weight: 600; color: var(--hq-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .agent-role { font-size: 11px; color: var(--hq-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-panel { flex: 1; display: flex; flex-direction: column; background: var(--hq-page-bg); min-width: 0; min-height: 0; }
+    .chat-header {
+      height: 56px; flex-shrink: 0; padding: 0 16px; border-bottom: 1px solid var(--hq-border);
+      background: var(--hq-topbar-bg); display: flex; align-items: center; gap: 12px;
+    }
+    .chat-header-icon {
+      width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px; flex-shrink: 0; color: #fff;
+    }
+    .chat-header-name { font-weight: 600; font-size: 14px; color: var(--hq-text); }
+    .chat-header-dept { font-size: 12px; color: var(--hq-muted); }
+    .chat-header-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+    .chat-task-context {
+      display:none;
+      padding:10px 16px;
+      border-bottom:1px solid var(--hq-border);
+      background:rgba(0,212,255,0.05);
+      color:var(--hq-text-secondary);
+      font-size:12px;
+      line-height:1.5;
+    }
+    .chat-task-context.open { display:block; }
+    .btn-sm {
+      padding: 6px 10px; font-size: 12px; border-radius: var(--hq-radius-btn);
+      border: 1px solid var(--hq-border); background: transparent;
+      color: var(--hq-text-secondary); cursor: pointer; font-family: inherit; font-weight: 600;
+      transition: 0.2s ease;
+    }
+    .btn-sm:hover { color: var(--hq-text); border-color: rgba(124,58,237,0.35); background: rgba(124,58,237,0.08); }
+    .chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .msg-wrap { max-width: 85%; display: flex; flex-direction: column; gap: 4px; }
+    .msg-wrap.user { align-self: flex-end; }
+    .msg-wrap.agent { align-self: flex-start; }
+    .msg {
+      padding: 10px 14px; border-radius: 12px;
+      font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+      position: relative;
+    }
+    .msg-user {
+      background: rgba(124, 58, 237, 0.2);
+      color: var(--hq-text);
+      border-radius: 12px 12px 4px 12px;
+    }
+    .msg-agent {
+      background: var(--hq-card);
+      border: 1px solid var(--hq-border);
+      color: var(--hq-text);
+      border-radius: 12px 12px 12px 4px;
+    }
+    .msg-agent.msg-collapsed { max-height: 7.5em; overflow: hidden; }
+    .msg-toggle {
+      font-size: 11px; color: var(--hq-accent-hover); cursor: pointer; background: none; border: none;
+      font-family: inherit; padding: 0; font-weight: 600; align-self: flex-start;
+    }
+    .msg-toggle:hover { text-decoration: underline; }
+    .msg-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .msg-time { font-size: 11px; color: var(--hq-muted); }
+    .msg-copy-btn {
+      font-size: 11px; color: var(--hq-muted); cursor: pointer; background: none; border: none; font-family: inherit; padding: 0;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .msg-wrap.agent:hover .msg-copy-btn { opacity: 1; }
+    .msg-copy-btn:hover { color: var(--hq-accent-hover); }
+    .typing-bar {
+      padding: 6px 16px; font-size: 12px; color: var(--hq-text-secondary);
+      display: none; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .typing-bar.visible { display: flex; }
+    .typing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--hq-accent); animation: team-blink 1.2s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes team-blink { 0%,80%,100%{opacity:0.25} 40%{opacity:1} }
+    .typing-timer { margin-left: 4px; font-variant-numeric: tabular-nums; }
+    .chat-input-wrap {
+      min-height: 80px; padding: 12px 16px; border-top: 1px solid var(--hq-border);
+      background: var(--hq-topbar-bg); display: flex; gap: 10px; align-items: flex-end; flex-shrink: 0;
+    }
+    .chat-input {
+      flex: 1; resize: none; min-height: 40px; max-height: 120px;
+      padding: 10px 12px; border-radius: var(--hq-radius-btn);
+      border: 1px solid var(--hq-border); background: #141414;
+      color: var(--hq-text); font-family: inherit; font-size: 13px; line-height: 1.45;
+    }
+    .chat-input:focus { outline: none; border-color: rgba(124,58,237,0.45); }
+    .chat-send {
+      padding: 10px 16px; border: none; border-radius: var(--hq-radius-btn); cursor: pointer;
+      font-weight: 600; font-family: inherit; font-size: 13px; color: #fff;
+      background: linear-gradient(135deg, var(--hq-accent), var(--hq-accent-hover));
+      transition: filter 0.2s ease, transform 0.2s ease; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .chat-send:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .chat-send:disabled { opacity: 0.45; cursor: default; transform: none; filter: none; }
+    .input-hint { font-size: 11px; color: var(--hq-muted); padding: 4px 16px 8px; flex-shrink: 0; background: var(--hq-topbar-bg); }
+    .empty-state-team { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--hq-muted); padding: 24px; }
+    .empty-state-team svg { width: 48px; height: 48px; opacity: 0.45; }
+    .msg-skel { align-self: flex-start; max-width: 85%; width: 100%; }
+    .msg-skel .skeleton { height: 14px; margin-bottom: 8px; border-radius: 4px; }
+    .msg-skel .skeleton:last-child { width: 70%; }
+    .topbar-extra { display: flex; align-items: center; gap: 10px; margin-left: 16px; flex: 1; }
+    .topbar-stat { font-size: 12px; color: var(--hq-text-secondary); }
+    .topbar-stat b { color: var(--hq-cyan); }
+    .team-hist-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; }
+    .team-hist-backdrop.open { display: block; }
+    .team-hist-drawer {
+      position: fixed; top: 0; right: 0; width: min(440px, 100vw); height: 100vh; z-index: 160;
+      background: var(--hq-sidebar-bg); border-left: 1px solid var(--hq-border);
+      display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.22s ease;
+      box-shadow: -8px 0 32px rgba(0,0,0,0.35);
+    }
+    .team-hist-drawer.open { transform: translateX(0); }
+  </style>
+</head>
+<body class="hq-body">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status" id="sysStatus"><span class="status-dot"></span><span class="status-label">Проверка…</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">AI Команда</span>
+      <div class="topbar-extra">
+        <span class="topbar-stat">Агентов: <b id="agentCount">0</b></span>
+        <span class="topbar-stat">Отделов: <b>7</b></span>
+        <button class="btn btn-ghost btn-sm" type="button" id="btnTeamHistory">История задач</button>
+        <a href="settings.html" class="btn-sm" id="hqModelBadge" style="text-decoration:none;margin-left:auto;" title="Настроить модель">Модель: …</a>
+        <button class="btn btn-sm" type="button" id="btnTeamTask">Задача команде</button>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-team-content">
+      <div id="teamViewBar" style="flex-shrink:0;padding:8px 12px 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:12px;color:var(--hq-muted);">Режим:</span>
+        <button type="button" class="btn btn-sm team-view-btn active" data-team-view="team">Команда</button>
+        <button type="button" class="btn btn-sm team-view-btn" data-team-view="agency">Агентство</button>
+        <button type="button" class="btn btn-sm team-view-btn" data-team-view="clients">Клиенты</button>
+      </div>
+      <div id="teamPanelTeam" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="team-chat-shell" style="flex:1;min-height:0;">
+        <div class="agent-list">
+          <div class="agent-search-wrap">
+            <input class="agent-search" id="agentSearch" type="text" placeholder="Поиск агента…" autocomplete="off" />
+          </div>
+          <div class="agent-items" id="agentItems"></div>
+        </div>
+
+        <div class="chat-panel" id="chatPanel">
+          <div class="empty-state-team" id="emptyState">
+            <i data-lucide="bot"></i>
+            <div style="font-weight:600;color:var(--hq-text);font-size:15px;">Выберите агента</div>
+            <p style="margin:0;font-size:13px;max-width:320px;text-align:center;line-height:1.5;">Нажмите на агента слева, чтобы открыть чат.</p>
+          </div>
+
+          <div id="activeChat" style="display:none;flex-direction:column;flex:1;min-height:0;">
+            <div class="chat-header">
+              <div class="chat-header-icon" id="chatIcon"></div>
+              <div>
+                <div class="chat-header-name" id="chatName"></div>
+                <div class="chat-header-dept" id="chatDept"></div>
+              </div>
+              <div class="chat-header-actions">
+                <button type="button" class="btn-sm" id="btnCopyLast" title="Копировать последний ответ">Копировать</button>
+                <button type="button" class="btn-sm" id="btnExport" title="Экспорт диалога">Экспорт</button>
+                <button type="button" class="btn-sm" id="btnClear" title="Очистить чат">Очистить</button>
+              </div>
+            </div>
+            <div class="chat-task-context" id="chatTaskContext"></div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="typing-bar" id="typingBar">
+              <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+              <span style="margin-left:4px" id="typingAgent">печатает</span>
+              <span class="typing-timer" id="typingTimer"></span>
+            </div>
+            <div class="input-hint">Ctrl+Enter — отправить · Enter — новая строка</div>
+            <div class="chat-input-wrap">
+              <textarea class="chat-input" id="chatInput" placeholder="Сообщение агенту…" rows="1"></textarea>
+              <button type="button" class="chat-send" id="btnSend" disabled><i data-lucide="send" style="width:16px;height:16px;"></i> Отпр.</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <div id="teamPanelAgency" style="display:none;flex:1;min-height:0;overflow:auto;padding:16px;">
+        <div class="card card-tight" style="max-width:560px;">
+          <div style="font-weight:600;margin-bottom:10px;color:var(--hq-text);font-size:14px;">Сводка агентства</div>
+          <div id="agencyDashContent" style="font-size:13px;color:var(--hq-text-secondary);line-height:1.55;">Загрузка…</div>
+        </div>
+      </div>
+
+      <div id="teamPanelClients" style="display:none;flex:1;min-height:0;overflow:auto;padding:16px;">
+        <p style="margin:0 0 12px;font-size:13px;color:var(--hq-text-secondary);">Клиенты из CRM — откройте CRM и выберите клиента в таблице или воронке.</p>
+        <div id="clientsQuickList" class="scroll-y" style="max-height:calc(100vh - 220px);"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-host"></div>
+
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <p style="color:var(--hq-text-secondary);font-size:13px;margin:0 0 12px;">Пароль HQ (ADMIN_PASSWORD)</p>
+      <input type="password" id="authPw" placeholder="Пароль" />
+      <p id="authErr" style="color:var(--hq-error);font-size:12px;min-height:16px;margin:8px 0 0;"></p>
+      <button type="button" class="btn" id="authSubmit" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <div class="team-hist-backdrop" id="teamHistBackdrop"></div>
+  <aside class="team-hist-drawer" id="teamHistDrawer" aria-hidden="true">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--hq-border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <span style="font-weight:600;font-size:14px;color:var(--hq-text);">История задач команды</span>
+      <button type="button" class="btn btn-ghost btn-sm" id="teamHistClose" aria-label="Закрыть">×</button>
+    </div>
+    <div class="scroll-y" id="teamTaskHistoryDrawer" style="padding:12px 16px;font-size:12px;flex:1;min-height:0;"></div>
+  </aside>
+
+  <div class="modal-overlay" id="teamModal">
+    <div class="modal modal-wrap-inner">
+      <h2 style="margin:0 0 8px;font-size:16px;">Задача всей команде</h2>
+      <p style="font-size:13px;color:var(--hq-text-secondary);margin:0 0 12px;line-height:1.5;">Задача уйдёт через Chief of Staff.</p>
+      <textarea id="teamTaskText" style="width:100%;min-height:120px;padding:10px;border-radius:8px;border:1px solid var(--hq-border);background:#141414;color:var(--hq-text);font-family:inherit;font-size:13px;" placeholder="Опишите задачу…"></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button type="button" class="btn btn-ghost" id="btnModalCancel">Отмена</button>
+        <button type="button" class="btn" id="btnTeamSend">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function() {
+'use strict';
+
+const PW_KEY = 'hq_admin_password';
+(function migratePw() {
+  var old = localStorage.getItem('hq_password');
+  if (old && !sessionStorage.getItem(PW_KEY)) sessionStorage.setItem(PW_KEY, old);
+})();
+function getPw() { return sessionStorage.getItem(PW_KEY) || ''; }
+function getPassword() { return getPw(); }
+function headersJson() {
+  var authH = (typeof window.hqAuthHeaders === 'function')
+    ? window.hqAuthHeaders()
+    : { 'X-Admin-Password': getPw() };
+  return Object.assign({ 'Content-Type': 'application/json' }, authH);
+}
+
+const DEPARTMENTS = [
+  { label: 'Управление', color: '#00d4ff', agents: ['chief_of_staff'] },
+  { label: 'Контент', color: '#a855f7', agents: ['content_director','telegram_writer','threads_writer','vc_writer','qa_editor'] },
+  { label: 'Аналитика', color: '#38bdf8', agents: ['research_head','market_analyst','competitor_analyst','trend_analyst'] },
+  { label: 'Продукт', color: '#fb923c', agents: ['product_manager','offer_strategist','hypothesis_analyst'] },
+  { label: 'Сайт', color: '#22c55e', agents: ['website_strategist','cro_analyst','web_copywriter'] },
+  { label: 'Операции', color: '#f472b6', agents: ['account_manager'] },
+  { label: 'AI Solutions', color: '#facc15', agents: ['client_ceo','ai_strategist','crisis_manager','solutions_pm','kp_writer','b2b_specialist'] },
+];
+
+const AGENT_COLOR = {};
+DEPARTMENTS.forEach(d => d.agents.forEach(a => AGENT_COLOR[a] = d.color));
+
+const LONG_MSG = 900;
+
+let allAgents = {};
+let currentAgent = null;
+let chatHistories = {};
+let msgCollapsed = {};
+let isSending = false;
+let timerInterval = null;
+let activeTaskContext = null;
+
+function showToast(msg, type) {
+  var host = document.getElementById('toast-container');
+  if (!host) return;
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type || 'info');
+  el.textContent = msg;
+  host.appendChild(el);
+  setTimeout(function () { el.remove(); }, 3000);
+}
+
+function setTaskContext(task) {
+  activeTaskContext = task || null;
+  var el = document.getElementById('chatTaskContext');
+  if (!el) return;
+  if (!task) {
+    el.classList.remove('open');
+    el.innerHTML = '';
+    return;
+  }
+  var status = (task.status || '—');
+  var responseLink = task.has_response
+    ? '<a href="' + (task.open_chat_url || '#') + '" style="color:var(--hq-accent-hover);">Открыть ответ</a>'
+    : '<span style="color:var(--hq-muted);">Ответ ещё не готов</span>';
+  el.innerHTML =
+    '<strong style="color:var(--hq-text);">Связанная задача:</strong> ' + escHtml(task.title || ('#' + task.id)) +
+    ' · статус: ' + escHtml(status) +
+    ' · дата выполнения: ' + escHtml(task.execution_date || task.due_date || '—') +
+    ' · дедлайн: ' + escHtml(task.deadline || task.due_date || '—') +
+    ' · ' + responseLink;
+  el.classList.add('open');
+}
+
+function tickClock() {
+  var el = document.getElementById('hqClock');
+  if (!el) return;
+  var d = new Date();
+  el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+    d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+function showAuth() {
+  document.getElementById('authOverlay').classList.add('is-open');
+}
+function hideAuth() {
+  document.getElementById('authOverlay').classList.remove('is-open');
+}
+
+async function apiFetch(url, opts) {
+  opts = opts || {};
+  var authH = (typeof window.hqAuthHeaders === 'function')
+    ? window.hqAuthHeaders()
+    : { 'X-Admin-Password': getPw() };
+  var h = Object.assign({}, authH, opts.headers || {});
+  var r = await fetch(url, Object.assign({}, opts, { headers: h }));
+  if (r.status === 401) {
+    if (!/\/hq\/login(\.html)?$/.test(window.location.pathname)) {
+      window.location.href = '/hq/login.html?next=' + encodeURIComponent(window.location.pathname);
+    }
+  }
+  return r;
+}
+window.hqApi = apiFetch;
+
+function switchTeamView(mode) {
+  document.querySelectorAll('.team-view-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.teamView === mode);
+  });
+  var pt = document.getElementById('teamPanelTeam');
+  var pa = document.getElementById('teamPanelAgency');
+  var pc = document.getElementById('teamPanelClients');
+  if (pt) pt.style.display = mode === 'team' ? 'flex' : 'none';
+  if (pa) pa.style.display = mode === 'agency' ? 'block' : 'none';
+  if (pc) pc.style.display = mode === 'clients' ? 'block' : 'none';
+  if (mode === 'agency') loadAgencyPanel();
+  if (mode === 'clients') loadClientsPanel();
+}
+
+async function loadAgencyPanel() {
+  var el = document.getElementById('agencyDashContent');
+  if (!el) return;
+  el.textContent = 'Загрузка…';
+  try {
+    var r = await apiFetch('/api/dashboard/stats');
+    var s = r.ok ? await r.json() : {};
+    var r2 = await apiFetch('/api/analytics/kpi');
+    var k = r2.ok ? await r2.json() : {};
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    var fmt = function (n) { return new Intl.NumberFormat('ru-RU').format(Number(n) || 0); };
+    el.innerHTML = '<ul style="margin:0;padding-left:1.1rem;">' +
+      '<li>Активных клиентов: <b style="color:var(--hq-text);">' + esc(fmt(s.active_clients)) + '</b></li>' +
+      '<li>Активных учеников: <b style="color:var(--hq-text);">' + esc(fmt(s.active_students)) + '</b></li>' +
+      '<li>Открытых задач (HQ v2): <b style="color:var(--hq-text);">' + esc(fmt(s.open_tasks_v2)) + '</b></li>' +
+      '<li>Оплачено всего (метрика): <b style="color:var(--hq-text);">' + esc(fmt(s.revenue_paid_total)) + ' ₽</b></li>' +
+      '</ul><p style="margin:12px 0 0;font-size:12px;opacity:.85;">KPI (JSON): <code style="font-size:11px;word-break:break-all;">' + esc(JSON.stringify(k)) + '</code></p>';
+  } catch (e) {
+    el.textContent = 'Ошибка загрузки';
+  }
+}
+
+async function loadClientsPanel() {
+  var host = document.getElementById('clientsQuickList');
+  if (!host) return;
+  var r = await apiFetch('/api/clients');
+  if (!r.ok) { host.textContent = 'Нет доступа'; return; }
+  var j = await r.json();
+  host.innerHTML = (j.clients || []).map(function (c) {
+    var name = String(c.name || '').replace(/</g, '&lt;');
+    return '<a href="crm.html" class="card card-tight" style="display:block;padding:10px 12px;margin-bottom:8px;color:var(--hq-text);text-decoration:none;border:1px solid var(--hq-border);">' +
+      '<strong>' + name + '</strong><div style="font-size:11px;opacity:.65;margin-top:4px;">' + String(c.status || '').replace(/</g, '&lt;') + ' · ' +
+      String(c.company || '').replace(/</g, '&lt;') + '</div></a>';
+  }).join('') || '<span style="color:var(--hq-muted)">Нет клиентов</span>';
+}
+
+document.querySelectorAll('.team-view-btn').forEach(function (b) {
+  b.addEventListener('click', function () { switchTeamView(b.dataset.teamView); });
+});
+
+function openTeamHistoryDrawer() {
+  document.getElementById('teamHistBackdrop').classList.add('open');
+  document.getElementById('teamHistDrawer').classList.add('open');
+  var d = document.getElementById('teamHistDrawer');
+  if (d) d.setAttribute('aria-hidden', 'false');
+}
+function closeTeamHistoryDrawer() {
+  document.getElementById('teamHistBackdrop').classList.remove('open');
+  document.getElementById('teamHistDrawer').classList.remove('open');
+  var d = document.getElementById('teamHistDrawer');
+  if (d) d.setAttribute('aria-hidden', 'true');
+}
+
+async function loadTeamTaskHistory() {
+  var el = document.getElementById('teamTaskHistoryDrawer');
+  if (!el) return;
+  try {
+    var items = await window.HQTasks.loadHistory(30);
+    el.innerHTML = items.map(function (t) {
+      var action = t.has_response ? 'Открыть ответ' : 'Перейти в диалог';
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--hq-border)">' +
+        '<div style="font-weight:600;color:var(--hq-text);margin-bottom:4px;">' + escHtml(t.title || ('#' + t.id)) + '</div>' +
+        '<div style="color:var(--hq-text-secondary);margin-bottom:6px;">' +
+        'Исполнитель: ' + escHtml(t.ai_agent_name || 'chief_of_staff') +
+        ' · статус: ' + escHtml(t.status || '—') +
+        ' · дата: ' + escHtml(t.created_at || '') + '</div>' +
+        (t.response_preview ? '<div style="font-size:12px;color:var(--hq-text-secondary);line-height:1.45;margin-bottom:8px;">' + escHtml(t.response_preview) + '</div>' : '') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<a href="team.html?agent=' + encodeURIComponent(t.ai_agent_name || 'chief_of_staff') + '&task=' + t.id + '" class="btn btn-ghost btn-sm">' + action + '</a>' +
+        '<a href="tasks.html" class="btn btn-ghost btn-sm">В задачник</a>' +
+        '</div></div>';
+    }).join('') || '<span style="color:var(--hq-muted)">Пока нет связанных задач</span>';
+  } catch (e) {
+    el.innerHTML = '<span style="color:var(--hq-error)">Не удалось загрузить историю</span>';
+  }
+}
+
+(function bindTeamHistoryUi() {
+  var bh = document.getElementById('btnTeamHistory');
+  if (bh) bh.onclick = function () { openTeamHistoryDrawer(); loadTeamTaskHistory(); };
+  var bc = document.getElementById('teamHistClose');
+  if (bc) bc.onclick = closeTeamHistoryDrawer;
+  var bb = document.getElementById('teamHistBackdrop');
+  if (bb) bb.onclick = closeTeamHistoryDrawer;
+})();
+
+async function openTaskFromUrlIfNeeded() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var agent = params.get('agent');
+    var taskId = params.get('task');
+    if (taskId && window.HQTasks) {
+      var task = await window.HQTasks.getTask(taskId);
+      setTaskContext(task);
+      if (!agent && task && task.ai_agent_name) agent = task.ai_agent_name;
+    } else {
+      setTaskContext(null);
+    }
+    if (agent) await window._selectAgent(agent);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+(async function init() {
+  if (!getPw()) showAuth();
+  else {
+    hideAuth();
+    await loadAgents();
+    await loadTeamTaskHistory();
+    await loadPanelModelHint();
+    renderAgentList();
+    await openTaskFromUrlIfNeeded();
+    checkStatus();
+    if (window.HQV3) { window.HQV3.initTopbar(); window.HQV3.initFab(); }
+  }
+  setInterval(checkStatus, 30000);
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+})();
+
+document.getElementById('authSubmit').onclick = async function () {
+  var v = document.getElementById('authPw').value.trim();
+  document.getElementById('authErr').textContent = '';
+  sessionStorage.setItem(PW_KEY, v);
+  var r = await apiFetch('/api/status');
+  if (r.ok) {
+    hideAuth();
+    await loadAgents();
+    await loadTeamTaskHistory();
+    await loadPanelModelHint();
+    renderAgentList();
+    await openTaskFromUrlIfNeeded();
+    checkStatus();
+    if (window.HQV3) { window.HQV3.initTopbar(); window.HQV3.initFab(); }
+    showToast('Добро пожаловать');
+  } else {
+    document.getElementById('authErr').textContent = 'Неверный пароль';
+    sessionStorage.removeItem(PW_KEY);
+  }
+};
+
+async function loadAgents() {
+  try {
+    var r = await apiFetch('/api/status');
+    if (r.status === 401) return;
+    var data = await r.json();
+    if (data.agents) data.agents.forEach(function (a) { allAgents[a.name] = a; });
+    document.getElementById('agentCount').textContent = Object.keys(allAgents).length || '—';
+  } catch (e) { console.error(e); }
+}
+
+async function loadPanelModelHint() {
+  var el = document.getElementById('hqModelBadge');
+  if (!el) return;
+  try {
+    var r = await apiFetch('/api/panel/settings');
+    if (!r.ok) return;
+    var d = await r.json();
+    var p = (d.presets || []).find(function (x) { return x.id === d.preset; });
+    el.textContent = 'Модель: ' + (p ? p.label : d.preset);
+    el.title = d.resolved_model_id || '';
+  } catch (e) {}
+}
+
+function renderAgentList(filter) {
+  var el = document.getElementById('agentItems');
+  var q = (filter || '').toLowerCase();
+  var html = '';
+  var total = 0;
+
+  DEPARTMENTS.forEach(function (dept) {
+    var matching = dept.agents.filter(function (name) {
+      if (!q) return true;
+      var a = allAgents[name];
+      var role = a ? a.role.toLowerCase() : '';
+      return name.includes(q) || role.includes(q) || dept.label.toLowerCase().includes(q);
+    });
+    if (!matching.length) return;
+
+    html += '<div class="dept-label">' + escHtml(dept.label) + '</div>';
+    matching.forEach(function (name) {
+      var a = allAgents[name];
+      var role = a ? a.role : name;
+      var initials = getInitials(name);
+      var color = dept.color;
+      var isActive = currentAgent === name ? ' active' : '';
+      html += '<div class="agent-item' + isActive + '" data-agent="' + name + '">' +
+        '<span class="agent-status-dot"></span>' +
+        '<div class="agent-avatar" style="background:linear-gradient(135deg,' + color + ',' + color + '88)">' + initials + '</div>' +
+        '<div class="agent-info"><div class="agent-name">' + formatName(name) + '</div>' +
+        '<div class="agent-role">' + escHtml(role) + '</div></div></div>';
+      total++;
+    });
+  });
+
+  if (!total && q) {
+    html = '<div style="padding:24px;text-align:center;color:var(--hq-muted);font-size:13px">Не найдено</div>';
+  }
+  el.innerHTML = html;
+  el.querySelectorAll('.agent-item').forEach(function (node) {
+    node.onclick = function () { window._selectAgent(node.getAttribute('data-agent')); };
+  });
+}
+
+function getInitials(name) {
+  var parts = name.split('_');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+}
+
+function formatName(name) {
+  return name.split('_').map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+}
+
+function escHtml(t) {
+  var d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
+}
+
+document.getElementById('agentSearch').addEventListener('input', function () {
+  renderAgentList(this.value);
+});
+
+window._selectAgent = async function (name) {
+  if (!getPw()) { showAuth(); return; }
+  currentAgent = name;
+  var a = allAgents[name] || { name: name, role: name, department: '' };
+  var color = AGENT_COLOR[name] || '#7c3aed';
+
+  document.querySelectorAll('.agent-item').forEach(function (el) { el.classList.remove('active'); });
+  var item = document.querySelector('.agent-item[data-agent="' + name + '"]');
+  if (item) item.classList.add('active');
+
+  document.getElementById('emptyState').style.display = 'none';
+  var ac = document.getElementById('activeChat');
+  ac.style.display = 'flex';
+
+  document.getElementById('chatIcon').textContent = getInitials(name);
+  document.getElementById('chatIcon').style.background = 'linear-gradient(135deg, ' + color + ', ' + color + '99)';
+  document.getElementById('chatName').textContent = formatName(name);
+  document.getElementById('chatDept').textContent = (a.role || '') + (a.department ? ' · ' + a.department : '');
+
+  document.getElementById('btnSend').disabled = false;
+
+  if (!chatHistories[name]) {
+    chatHistories[name] = [];
+    try {
+      var r = await apiFetch('/api/agents/' + name + '/chat/history?limit=80');
+      if (r.ok) {
+        var data = await r.json();
+        var msgs = data.messages || data.history || [];
+        if (msgs.length) {
+          chatHistories[name] = msgs.map(function (m) {
+            return {
+              role: m.role === 'assistant' ? 'agent' : (m.role || 'user'),
+              text: m.content || m.text || m.input_brief || m.output_text || '',
+              time: m.created_at || m.time || ''
+            };
+          });
+        }
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  renderMessages();
+  document.getElementById('chatInput').focus();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+(function () {
+  var _hqSelectAgent = window._selectAgent;
+  window._selectAgent = async function (name) {
+    await _hqSelectAgent(name);
+    if (!window.matchMedia('(max-width: 768px)').matches) return;
+    if (!getPw()) return;
+    var ac = document.getElementById('activeChat');
+    if (!ac || ac.style.display === 'none') return;
+    var panel = document.querySelector('.chat-panel');
+    if (!panel) return;
+    if (!panel.querySelector('.chat-back-btn')) {
+      var backBtn = document.createElement('div');
+      backBtn.className = 'chat-back-btn';
+      backBtn.setAttribute('role', 'button');
+      backBtn.tabIndex = 0;
+      backBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Все агенты';
+      backBtn.addEventListener('click', function () {
+        panel.classList.remove('open');
+      });
+      backBtn.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          panel.classList.remove('open');
+        }
+      });
+      panel.insertBefore(backBtn, panel.firstChild);
+    }
+    panel.classList.add('open');
+  };
+})();
+
+function renderMessages() {
+  var el = document.getElementById('chatMessages');
+  var msgs = chatHistories[currentAgent] || [];
+
+  if (!msgs.length) {
+    var a = allAgents[currentAgent] || {};
+    el.innerHTML = '<div class="empty-state" style="flex:1;"><i data-lucide="message-circle"></i><p>Начните диалог с ' + escHtml(formatName(currentAgent)) + '</p><p style="font-size:12px;max-width:360px;">' + escHtml(a.role || '') + '</p></div>';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+
+  el.innerHTML = msgs.map(function (m, i) {
+    if (m.role === 'skeleton') {
+      return '<div class="msg-skel" id="skel-' + i + '"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>';
+    }
+    var isUser = m.role === 'user';
+    var cls = isUser ? 'msg-user' : 'msg-agent';
+    var time = m.time ? fmtTime(m.time) : '';
+    var copyBtn = !isUser
+      ? '<button type="button" class="msg-copy-btn" data-copy="' + i + '">Копировать</button>'
+      : '';
+    var long = !isUser && (m.text || '').length > LONG_MSG;
+    var collapsed = msgCollapsed[i];
+    var collapseCls = long && collapsed ? ' msg-collapsed' : '';
+    var toggleBtn = long
+      ? '<button type="button" class="msg-toggle" data-toggle="' + i + '">' + (collapsed ? 'Развернуть' : 'Свернуть') + '</button>'
+      : '';
+    return '<div class="msg-wrap ' + (isUser ? 'user' : 'agent') + '">' +
+      '<div class="msg ' + cls + collapseCls + '" data-idx="' + i + '">' + escHtml(m.text) + '</div>' +
+      toggleBtn +
+      '<div class="msg-meta"><span class="msg-time">' + time + '</span>' + copyBtn + '</div></div>';
+  }).join('');
+
+  el.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.onclick = function () {
+      var idx = +b.getAttribute('data-copy');
+      var m = msgs[idx];
+      if (m && m.text) navigator.clipboard.writeText(m.text).then(function () { showToast('Скопировано'); });
+    };
+  });
+  el.querySelectorAll('[data-toggle]').forEach(function (b) {
+    b.onclick = function () {
+      var idx = +b.getAttribute('data-toggle');
+      msgCollapsed[idx] = !msgCollapsed[idx];
+      renderMessages();
+    };
+  });
+
+  el.scrollTop = el.scrollHeight;
+  renderAgentList(document.getElementById('agentSearch').value);
+}
+
+function fmtTime(iso) {
+  try {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var now = new Date();
+    var sameDay = d.toDateString() === now.toDateString();
+    var time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    if (sameDay) return time;
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + ' ' + time;
+  } catch (e) { return ''; }
+}
+
+async function sendMessage() {
+  var input = document.getElementById('chatInput');
+  var text = input.value.trim();
+  if (!text || !currentAgent || isSending) return;
+
+  input.value = '';
+  autoResize(input);
+  isSending = true;
+
+  if (!chatHistories[currentAgent]) chatHistories[currentAgent] = [];
+  chatHistories[currentAgent].push({ role: 'user', text: text, time: new Date().toISOString() });
+  chatHistories[currentAgent].push({ role: 'skeleton', text: '', time: '' });
+  renderMessages();
+
+  var typing = document.getElementById('typingBar');
+  document.getElementById('typingAgent').textContent = formatName(currentAgent) + ' печатает';
+  typing.classList.add('visible');
+  document.getElementById('btnSend').disabled = true;
+  startTimer();
+
+  try {
+    var r = await fetch('/api/agents/' + currentAgent + '/chat', {
+      method: 'POST',
+      headers: headersJson(),
+      body: JSON.stringify({ message: text, context: {}, max_tokens: 4000 })
+    });
+
+    if (r.status === 401) { showAuth(); return; }
+
+    var data = await r.json();
+    chatHistories[currentAgent] = chatHistories[currentAgent].filter(function (m) { return m.role !== 'skeleton'; });
+    if (r.ok) {
+      var reply = data.text || data.response || 'Нет ответа';
+      chatHistories[currentAgent].push({ role: 'agent', text: reply, time: new Date().toISOString() });
+    } else {
+      chatHistories[currentAgent].push({
+        role: 'agent',
+        text: 'Ошибка: ' + (data.detail || data.error || r.statusText),
+        time: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    chatHistories[currentAgent] = chatHistories[currentAgent].filter(function (m) { return m.role !== 'skeleton'; });
+    chatHistories[currentAgent].push({
+      role: 'agent', text: 'Ошибка сети: ' + e.message, time: new Date().toISOString()
+    });
+  } finally {
+    typing.classList.remove('visible');
+    stopTimer();
+    document.getElementById('btnSend').disabled = false;
+    isSending = false;
+    renderMessages();
+    input.focus();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  }
+}
+
+function startTimer() {
+  var el = document.getElementById('typingTimer');
+  var sec = 0;
+  el.textContent = '0с';
+  timerInterval = setInterval(function () {
+    sec++;
+    el.textContent = sec + 'с';
+  }, 1000);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  document.getElementById('typingTimer').textContent = '';
+}
+
+document.getElementById('btnCopyLast').onclick = function () {
+  var msgs = chatHistories[currentAgent] || [];
+  var last = msgs.slice().reverse().find(function (m) { return m.role === 'agent'; });
+  if (last) navigator.clipboard.writeText(last.text).then(function () { showToast('Скопировано'); });
+  else showToast('Нет ответов');
+};
+
+document.getElementById('btnExport').onclick = function () {
+  if (!currentAgent) return;
+  var msgs = chatHistories[currentAgent] || [];
+  if (!msgs.length) { showToast('Диалог пуст'); return; }
+  var lines = ['Диалог с ' + formatName(currentAgent), 'Экспорт: ' + new Date().toLocaleString('ru-RU'), ''];
+  msgs.forEach(function (m) {
+    if (m.role === 'skeleton') return;
+    var who = m.role === 'user' ? 'Владелец' : formatName(currentAgent);
+    var time = m.time ? fmtTime(m.time) : '';
+    lines.push('[' + time + '] ' + who + ':');
+    lines.push(m.text);
+    lines.push('');
+  });
+  var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'chat_' + currentAgent + '_' + new Date().toISOString().slice(0, 10) + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Экспорт готов');
+};
+
+document.getElementById('btnClear').onclick = function () {
+  if (!currentAgent) return;
+  if (!confirm('Очистить историю чата только на экране?')) return;
+  chatHistories[currentAgent] = [];
+  msgCollapsed = {};
+  renderMessages();
+};
+
+document.getElementById('btnSend').onclick = sendMessage;
+
+document.getElementById('chatInput').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+var chatInput = document.getElementById('chatInput');
+chatInput.addEventListener('input', function () { autoResize(this); });
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+document.getElementById('btnTeamTask').onclick = function () {
+  document.getElementById('teamModal').classList.add('is-open');
+  setTimeout(function () { document.getElementById('teamTaskText').focus(); }, 100);
+};
+document.getElementById('btnModalCancel').onclick = function () {
+  document.getElementById('teamModal').classList.remove('is-open');
+};
+document.getElementById('teamModal').onclick = function (e) {
+  if (e.target === this) this.classList.remove('is-open');
+};
+document.getElementById('teamTaskText').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    document.getElementById('btnTeamSend').click();
+  }
+});
+
+document.getElementById('btnTeamSend').onclick = async function () {
+  var text = document.getElementById('teamTaskText').value.trim();
+  if (!text) return;
+  this.disabled = true;
+  var orig = this.textContent;
+  this.textContent = 'Отправляю…';
+  try {
+    var r = await fetch('/api/task', { method: 'POST', headers: headersJson(), body: JSON.stringify({ message: text }) });
+    if (r.ok) {
+      var data = await r.json();
+      showToast('Задача #' + data.task_id + ' принята');
+      document.getElementById('teamModal').classList.remove('is-open');
+      document.getElementById('teamTaskText').value = '';
+    } else {
+      var err = await r.json().catch(function () { return {}; });
+      showToast('Ошибка: ' + (err.detail || r.statusText));
+    }
+  } catch (e) {
+    showToast('Сеть: ' + e.message);
+  } finally {
+    this.disabled = false;
+    this.textContent = orig;
+  }
+};
+
+async function checkStatus() {
+  var s = document.getElementById('sysStatus');
+  var lbl = s && s.querySelector('.status-label');
+  try {
+    var r = await apiFetch('/api/status');
+    if (r.ok) {
+      if (lbl) lbl.textContent = 'Онлайн';
+      s.classList.add('online');
+      s.classList.remove('offline');
+    } else {
+      if (lbl) lbl.textContent = 'Ошибка';
+      s.classList.remove('online');
+      s.classList.remove('offline');
+    }
+  } catch (e) {
+    if (lbl) lbl.textContent = 'Оффлайн';
+    s.classList.add('offline');
+    s.classList.remove('online');
+  }
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') document.getElementById('teamModal').classList.remove('is-open');
+});
+
+})();
+</script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>

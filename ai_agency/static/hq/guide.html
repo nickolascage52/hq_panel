@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <base href="/hq/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AI Delivery — Инструкция HQ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/hq/style.css" />
+  <link rel="stylesheet" href="/hq/_base.css" />
+
+  <link rel="stylesheet" href="hq-mobile.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    .hq-guide-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 12px 16px 96px;
+      scroll-padding-top: 72px;
+    }
+    .guide-tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 4px 0 8px;
+      border-bottom: 1px solid var(--hq-border);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--hq-page-bg);
+    }
+    .guide-tab {
+      border: 1px solid var(--hq-border);
+      background: rgba(124, 58, 237, 0.08);
+      color: var(--hq-text-secondary);
+      padding: 8px 14px;
+      border-radius: var(--hq-radius-btn);
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--hq-font);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .guide-tab:hover {
+      color: var(--hq-text);
+      border-color: rgba(124, 58, 237, 0.35);
+    }
+    .guide-tab.active {
+      background: rgba(124, 58, 237, 0.22);
+      border-color: rgba(124, 58, 237, 0.5);
+      color: var(--hq-text);
+      box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.2);
+    }
+    .guide-panel {
+      display: none;
+      animation: guideFade 0.2s ease;
+      min-width: 0;
+      padding-bottom: 8px;
+    }
+    .guide-panel.active {
+      display: block;
+    }
+    @keyframes guideFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .guide-panel h2 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: var(--hq-text);
+    }
+    .guide-panel h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 20px 0 8px;
+      color: var(--hq-accent-hover);
+    }
+    .guide-panel p,
+    .guide-panel li {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--hq-text-secondary);
+    }
+    .guide-panel ul {
+      margin: 0 0 12px;
+      padding-left: 18px;
+    }
+    .guide-panel .guide-lead {
+      font-size: 13px;
+      color: var(--hq-text-secondary);
+      margin: 0 0 16px;
+    }
+    .guide-checklist {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .guide-checklist li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: var(--hq-card);
+      border: 1px solid var(--hq-border);
+      border-radius: var(--hq-radius);
+      border-left: 3px solid var(--hq-accent);
+    }
+    .guide-checklist li label {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      cursor: pointer;
+      flex: 1;
+      margin: 0;
+    }
+    .guide-checklist input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: var(--hq-accent);
+      flex-shrink: 0;
+    }
+    .guide-checklist .guide-step-title {
+      font-weight: 600;
+      color: var(--hq-text);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .guide-checklist .guide-step-body {
+      font-size: 12px;
+      color: var(--hq-text-secondary);
+      line-height: 1.5;
+    }
+    .guide-code-wrap {
+      position: relative;
+      background: #111111;
+      border: 1px solid var(--hq-border);
+      border-radius: var(--hq-radius-btn);
+      margin: 12px 0;
+      overflow: hidden;
+    }
+    .guide-code-wrap pre {
+      margin: 0;
+      padding: 38px 14px 14px;
+      overflow-x: auto;
+      font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #e4e4e7;
+    }
+    .guide-code-wrap code {
+      font-family: inherit;
+      white-space: pre;
+    }
+    .guide-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 1;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(124, 58, 237, 0.35);
+      background: rgba(124, 58, 237, 0.2);
+      color: var(--hq-accent-hover);
+      cursor: pointer;
+      font-family: var(--hq-font);
+    }
+    .guide-copy-btn:hover {
+      background: rgba(124, 58, 237, 0.35);
+      color: var(--hq-text);
+    }
+    .guide-copy-btn.copied {
+      border-color: var(--hq-success);
+      color: var(--hq-success);
+      background: rgba(34, 197, 94, 0.12);
+    }
+    .guide-table-wrap {
+      overflow-x: auto;
+      margin: 12px 0;
+      border: 1px solid var(--hq-border);
+      border-radius: var(--hq-radius-btn);
+    }
+    table.guide-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    table.guide-table th,
+    table.guide-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--hq-border);
+      color: var(--hq-text-secondary);
+    }
+    table.guide-table th {
+      background: rgba(124, 58, 237, 0.12);
+      color: var(--hq-text);
+      font-weight: 600;
+    }
+    table.guide-table tr:last-child td {
+      border-bottom: none;
+    }
+    .guide-ascii {
+      background: #111111;
+      border: 1px solid var(--hq-border);
+      border-radius: var(--hq-radius-btn);
+      padding: 14px;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #a1a1aa;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    .guide-ok { color: var(--hq-success); }
+    .guide-card-inline {
+      background: var(--hq-card);
+      border: 1px solid var(--hq-border);
+      border-radius: var(--hq-radius);
+      padding: 14px 16px;
+      margin: 12px 0;
+    }
+    .guide-divider {
+      height: 1px;
+      background: var(--hq-border);
+      margin: 20px 0;
+    }
+    @media (max-width: 768px) {
+      .hq-guide-wrap {
+        padding: 10px 12px 120px;
+      }
+      .guide-tabs-bar {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
+      }
+      .guide-tab {
+        flex-shrink: 0;
+      }
+    }
+  </style>
+</head>
+<body class="hq-body">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo"><span class="logo-mark">✦</span> AI Delivery</div>
+      <div class="sidebar-tag">HQ Panel</div>
+    </div>
+    <nav class="nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sys-status" id="sysStatus"><span class="status-dot"></span><span class="status-label">—</span></div>
+      <div class="sidebar-version">v4.0</div>
+    </div>
+  </aside>
+
+  <div class="hq-main">
+    <header class="topbar">
+      <span class="topbar-title">Инструкция</span>
+      <div class="topbar-right">
+        <span class="topbar-clock topbar-time" id="hqClock"></span>
+        <div class="topbar-avatar">А</div>
+      </div>
+    </header>
+
+    <div class="hq-content hq-guide-wrap" data-page="guide">
+      <div class="guide-tabs-bar" role="tablist" aria-label="Разделы инструкции">
+        <button type="button" class="guide-tab active" role="tab" aria-selected="true" data-tab="start">Быстрый старт</button>
+        <button type="button" class="guide-tab" role="tab" aria-selected="false" data-tab="tasks">Задачи команде</button>
+        <button type="button" class="guide-tab" role="tab" aria-selected="false" data-tab="metrics">Метрики</button>
+        <button type="button" class="guide-tab" role="tab" aria-selected="false" data-tab="am">Аккаунт-менеджер</button>
+        <button type="button" class="guide-tab" role="tab" aria-selected="false" data-tab="crm">CRM</button>
+        <button type="button" class="guide-tab" role="tab" aria-selected="false" data-tab="notes">Задачник</button>
+      </div>
+
+      <div id="panel-start" class="guide-panel active" role="tabpanel">
+        <h2>Готов к работе за 10 минут</h2>
+        <p class="guide-lead">Отмечай шаги по мере выполнения — галочки сохраняются в этом браузере (localStorage).</p>
+        <ul class="guide-checklist">
+          <li>
+            <label>
+              <input type="checkbox" data-guide-check />
+              <span>
+                <span class="guide-step-title">Шаг 1: Заполни информацию об агентстве</span>
+                <span class="guide-step-body">
+                  Открой <a href="index.html" style="color:var(--hq-accent-hover)">/hq/</a> → блок «Контекст агентства» → скачай шаблон.<br />
+                  Заполни: название, услуги, аудитория, голос бренда → загрузи файл обратно.<br />
+                  Все 21 агент будут знать о твоём агентстве.
+                </span>
+              </span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" data-guide-check />
+              <span>
+                <span class="guide-step-title">Шаг 2: Добавь первого клиента</span>
+                <span class="guide-step-body">
+                  <a href="crm.html" style="color:var(--hq-accent-hover)">CRM</a> → Клиенты → «+ Клиент».<br />
+                  Заполни: имя, услуга, статус, сумма, следующий шаг.
+                </span>
+              </span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" data-guide-check />
+              <span>
+                <span class="guide-step-title">Шаг 3: Отправь первую задачу команде</span>
+                <span class="guide-step-body">
+                  Дашборд → блок «Быстрая задача» или <a href="tasks.html" style="color:var(--hq-accent-hover)">задачник</a> → создай задачу → «В AI-команду».<br />
+                  Или напиши боту в Telegram.
+                </span>
+              </span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" data-guide-check />
+              <span>
+                <span class="guide-step-title">Шаг 4: Подключи Яндекс.Метрику (~5 минут)</span>
+                <span class="guide-step-body">Пошаговая инструкция — во вкладке «Метрики» этой страницы.</span>
+              </span>
+            </label>
+          </li>
+          <li>
+            <label>
+              <input type="checkbox" data-guide-check />
+              <span>
+                <span class="guide-step-title">Шаг 5: Настрой аккаунт-менеджера</span>
+                <span class="guide-step-body">
+                  Telegram → /start → «Отчёт дня». Каждый день, кроме выбранного в .env (например четверга), он пришлёт напоминания.<br />
+                  Подробности — вкладка «Аккаунт-менеджер».
+                </span>
+              </span>
+            </label>
+          </li>
+        </ul>
+      </div>
+
+      <div id="panel-tasks" class="guide-panel" role="tabpanel" hidden>
+        <h2>Как давать задачи команде</h2>
+        <h3>Способ 1 — через дашборд (рекомендуется)</h3>
+        <p>Кнопка «Задача команде» на <a href="index.html" style="color:var(--hq-accent-hover)">дашборде</a> → текст задачи → режим:</p>
+        <ul>
+          <li><strong style="color:var(--hq-text)">Lite</strong> (1–2 агента) — быстро, дёшево, простые задачи</li>
+          <li><strong style="color:var(--hq-text)">Standard</strong> (3–5 агентов) — оптимально для большинства задач</li>
+          <li><strong style="color:var(--hq-text)">Full</strong> (вся команда) — сложные задачи, полный анализ</li>
+        </ul>
+        <p>Приблизительная стоимость за задачу: Lite ~$0.02–0.05 · Standard ~$0.05–0.15 · Full ~$0.15–0.40</p>
+
+        <h3>Способ 2 — прямой чат с агентом</h3>
+        <p><a href="team.html" style="color:var(--hq-accent-hover)">AI Команда</a> → выбери агента → пиши напрямую.</p>
+        <div class="guide-table-wrap">
+          <table class="guide-table">
+            <thead>
+              <tr><th>Агент</th><th>Когда писать</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Chief of Staff</td><td>Любая сложная задача — он сам распределит</td></tr>
+              <tr><td>Content Director</td><td>Нужен контент-план или стратегия</td></tr>
+              <tr><td>Telegram Writer</td><td>Пост в Telegram прямо сейчас</td></tr>
+              <tr><td>VC Writer</td><td>Статья для VC.ru или Дзен</td></tr>
+              <tr><td>Market Analyst</td><td>Исследовать рынок или тренды</td></tr>
+              <tr><td>Competitor Analyst</td><td>Анализ конкурента</td></tr>
+              <tr><td>Website Strategist</td><td>Улучшить сайт</td></tr>
+              <tr><td>CRO Analyst</td><td>Повысить конверсию страницы</td></tr>
+              <tr><td>Account Manager</td><td>Отчёт, статус клиентов, напоминания</td></tr>
+              <tr><td>AI Strategist</td><td>Подобрать ИИ-решение для клиента</td></tr>
+              <tr><td>KP Writer</td><td>Написать коммерческое предложение</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Способ 3 — Telegram (везде и всегда)</h3>
+        <div class="guide-table-wrap">
+          <table class="guide-table">
+            <thead>
+              <tr><th>Команда</th><th>Действие</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code style="color:var(--hq-cyan)">/report</code></td><td>Ежедневный отчёт</td></tr>
+              <tr><td><code style="color:var(--hq-cyan)">/clients</code></td><td>Статус всех клиентов</td></tr>
+              <tr><td><code style="color:var(--hq-cyan)">/students</code></td><td>Статус учеников</td></tr>
+              <tr><td><code style="color:var(--hq-cyan)">/finance</code></td><td>Финансовый срез</td></tr>
+              <tr><td><code style="color:var(--hq-cyan)">/deadlines</code></td><td>Дедлайны на 2 недели</td></tr>
+              <tr><td><code style="color:var(--hq-cyan)">/agent [имя] [задача]</code></td><td>Напрямую конкретному агенту</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Примеры хороших задач</h3>
+        <ul>
+          <li class="guide-ok">✓ «Напиши пост в Telegram про то, как мы автоматизировали CRM за 3 дня»</li>
+          <li class="guide-ok">✓ «Проанализируй конкурента automatize.ru — что они делают лучше нас»</li>
+          <li class="guide-ok">✓ «Создай КП для клиента: розничный магазин одежды, хочет бот для заявок»</li>
+          <li class="guide-ok">✓ «Придумай 5 гипотез, как улучшить конверсию главной страницы»</li>
+          <li class="guide-ok">✓ «Напиши статью для VC.ru про автоматизацию отдела продаж»</li>
+        </ul>
+      </div>
+
+      <div id="panel-metrics" class="guide-panel" role="tabpanel" hidden>
+        <h2>Яндекс.Метрика</h2>
+        <h3>Шаг 1 — номер счётчика</h3>
+        <ol style="margin:0 0 12px;padding-left:18px;color:var(--hq-text-secondary);font-size:13px;line-height:1.55;">
+          <li>Открой <a href="https://metrika.yandex.ru" target="_blank" rel="noopener" style="color:var(--hq-accent-hover)">metrika.yandex.ru</a></li>
+          <li>Выбери счётчик для <strong style="color:var(--hq-text)">ai-delivery.shop</strong></li>
+          <li>Настройки (шестерёнка) → вкладка «Счётчик»</li>
+          <li>Скопируй номер (8 цифр, например: 98765432)</li>
+        </ol>
+
+        <h3>Шаг 2 — OAuth-токен</h3>
+        <ol style="margin:0 0 12px;padding-left:18px;color:var(--hq-text-secondary);font-size:13px;line-height:1.55;">
+          <li>Открой авторизацию Яндекса (ссылка ниже)</li>
+          <li>Разреши доступ</li>
+          <li>Скопируй токен из URL (после <code style="color:var(--hq-cyan)">#access_token=</code>)</li>
+        </ol>
+        <p style="font-size:12px;word-break:break-all;">
+          <a href="https://oauth.yandex.ru/authorize?response_type=token&amp;client_id=1d0b9dd4d652455a9eb710d450ff456a" target="_blank" rel="noopener" style="color:var(--hq-accent-hover)">oauth.yandex.ru/authorize?response_type=token&amp;client_id=1d0b9dd4d652455a9eb710d450ff456a</a>
+        </p>
+
+        <h3>Шаг 3 — добавь в .env на сервере</h3>
+        <p>Подключись через PuTTY к <strong style="color:var(--hq-text)">89.22.235.144</strong></p>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>nano /var/www/ai_agency/ai_agency/.env</code></pre>
+        </div>
+        <p>Добавь строки:</p>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>YANDEX_METRIKA_TOKEN=твой_токен_здесь
+YANDEX_METRIKA_COUNTER=твой_номер_счётчика</code></pre>
+        </div>
+        <p>Сохрани в nano: Ctrl+O → Enter → Ctrl+X</p>
+
+        <h3>Шаг 4 — перезапуск сервиса</h3>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>systemctl restart ai-agency</code></pre>
+        </div>
+
+        <h3>Шаг 5 — проверка</h3>
+        <p>Открой <a href="analytics.html" style="color:var(--hq-accent-hover)">/hq/analytics.html</a> → блок «Посетители» должен показать реальные данные.</p>
+
+        <div class="guide-divider"></div>
+
+        <h2>Google Search Console</h2>
+        <h3>Шаг 1 — credentials</h3>
+        <ol style="margin:0 0 12px;padding-left:18px;color:var(--hq-text-secondary);font-size:13px;line-height:1.55;">
+          <li><a href="https://console.cloud.google.com" target="_blank" rel="noopener" style="color:var(--hq-accent-hover)">console.cloud.google.com</a> — проект</li>
+          <li>APIs &amp; Services → Enable APIs → Google Search Console API</li>
+          <li>Credentials → Create Credentials → OAuth 2.0 Client ID</li>
+          <li>Скачай JSON</li>
+        </ol>
+
+        <h3>Шаг 2 — загрузка на сервер</h3>
+        <p>Через WinSCP положи файл в:</p>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>/var/www/ai_agency/ai_agency/data/google_credentials.json</code></pre>
+        </div>
+
+        <h3>Шаг 3 — .env</h3>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>GOOGLE_CREDENTIALS_PATH=/var/www/ai_agency/ai_agency/data/google_credentials.json
+GOOGLE_SEARCH_CONSOLE_SITE=https://ai-delivery.shop/</code></pre>
+        </div>
+
+        <div class="guide-divider"></div>
+
+        <h2>Яндекс.Вебмастер</h2>
+        <p>Тот же OAuth-токен, что и для Метрики. В .env:</p>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>YANDEX_WEBMASTER_HOST_ID=https:ai-delivery.shop:443</code></pre>
+        </div>
+        <p style="font-size:12px;">Формат: протокол + домен + порт <strong style="color:var(--hq-text)">без слешей</strong>.</p>
+      </div>
+
+      <div id="panel-am" class="guide-panel" role="tabpanel" hidden>
+        <h2>Аккаунт-менеджер</h2>
+        <h3>Что делает автоматически</h3>
+        <ul>
+          <li>Каждый день кроме заданного в .env (например четверга) в заданное время — список задач на день в Telegram</li>
+          <li>Напоминания о клиентах со скорым дедлайном</li>
+          <li>Непроверенные задания учеников</li>
+          <li>Просроченные оплаты</li>
+        </ul>
+
+        <h3>Расписание в .env</h3>
+        <div class="guide-code-wrap">
+          <button type="button" class="guide-copy-btn" aria-label="Копировать">Копировать</button>
+          <pre><code>ACCOUNT_MANAGER_TIME=09:00
+ACCOUNT_MANAGER_SKIP_DAYS=3  # 3 = четверг (0=пн, 1=вт, 2=ср, 3=чт, 4=пт)</code></pre>
+        </div>
+
+        <h3>Пример текста ежедневного отчёта</h3>
+        <div class="guide-ascii">📅 ОТЧЁТ — 8 апреля 2026
+
+👥 КЛИЕНТЫ (3 активных):
+• Иванов ООО — разработка — дедлайн через 3 дня
+• Петров ИП — тестирование — всё по плану
+• Сидорова — запуск — ожидает оплату 45 000 ₽
+
+💰 ФИНАНСЫ:
+• Ожидается: 75 000 ₽
+• Просрочено: 0 ₽
+
+🎓 УЧЕНИКИ (2 активных):
+• Алексей — сессия завтра в 15:00
+• Мария — 2 задания на проверке
+
+✅ ЗАДАЧИ НА СЕГОДНЯ:
+• Написать Иванову про дедлайн
+• Проверить задания Марии
+• Выставить счёт Сидоровой</div>
+      </div>
+
+      <div id="panel-crm" class="guide-panel" role="tabpanel" hidden>
+        <h2>CRM — как вести клиентов</h2>
+        <h3>Статусы клиентов</h3>
+        <ul>
+          <li><code style="color:var(--hq-cyan)">lead</code> — потенциальный клиент, ещё не платит</li>
+          <li><code style="color:var(--hq-cyan)">active</code> — активный проект</li>
+          <li><code style="color:var(--hq-cyan)">paused</code> — на паузе</li>
+          <li><code style="color:var(--hq-cyan)">done</code> — проект завершён</li>
+          <li><code style="color:var(--hq-cyan)">cancelled</code> — отменён</li>
+        </ul>
+
+        <h3>Этапы проекта (последовательно)</h3>
+        <ol style="margin:0 0 12px;padding-left:18px;color:var(--hq-text-secondary);font-size:13px;line-height:1.55;">
+          <li>Discovery — бриф, понимание задачи, scope</li>
+          <li>Design — дизайн решения, архитектура</li>
+          <li>Development — разработка</li>
+          <li>Testing — тестирование с клиентом</li>
+          <li>Launch — запуск и передача</li>
+          <li>Support — поддержка после запуска</li>
+        </ol>
+
+        <h3>Критерии «этап завершён»</h3>
+        <div class="guide-card-inline">
+          <p style="margin:0 0 8px;"><strong style="color:var(--hq-text)">Discovery</strong> → есть подписанный бриф / scope</p>
+          <p style="margin:0 0 8px;"><strong style="color:var(--hq-text)">Design</strong> → клиент согласовал решение</p>
+          <p style="margin:0 0 8px;"><strong style="color:var(--hq-text)">Development</strong> → всё работает технически</p>
+          <p style="margin:0 0 8px;"><strong style="color:var(--hq-text)">Testing</strong> → клиент подтвердил, что всё ок</p>
+          <p style="margin:0 0 8px;"><strong style="color:var(--hq-text)">Launch</strong> → передан доступ, написана инструкция</p>
+          <p style="margin:0;"><strong style="color:var(--hq-text)">Support</strong> → прошло 30 дней без критических проблем</p>
+        </div>
+        <p style="font-size:12px;">Раздел <a href="crm.html" style="color:var(--hq-accent-hover)">CRM</a> в панели — клиенты и проекты в одном месте.</p>
+      </div>
+
+      <div id="panel-notes" class="guide-panel" role="tabpanel" hidden>
+        <h2>Задачник и связка с AI-командой</h2>
+        <p class="guide-lead">Теперь быстрые задачи с дашборда и основной задачник работают на одной модели <strong style="color:var(--hq-text)">tasks_v2</strong>.</p>
+
+        <h3>Как создавать задачи</h3>
+        <ul>
+          <li>На <a href="index.html" style="color:var(--hq-accent-hover)">дашборде</a> есть блок «Быстрая задача» для мгновенного добавления</li>
+          <li>Полный список, фильтры и статусы находятся в <a href="tasks.html" style="color:var(--hq-accent-hover)">задачнике</a></li>
+          <li>Каждая задача может содержать описание, приоритет, дату выполнения и дедлайн</li>
+        </ul>
+
+        <h3>Две разные даты</h3>
+        <ul>
+          <li><strong style="color:var(--hq-text)">Дата выполнения</strong> — когда задача должна быть сделана по плану</li>
+          <li><strong style="color:var(--hq-text)">Дедлайн</strong> — крайний срок, после которого задача считается просроченной</li>
+          <li>В списках и на дашборде система сначала ориентируется на дату выполнения, а контроль просрочки идёт по дедлайну</li>
+        </ul>
+
+        <h3>Отправка в AI-команду</h3>
+        <ul>
+          <li>Кнопка <strong style="color:var(--hq-text)">«В AI-команду»</strong> создаёт связанную AI-задачу без потери контекста</li>
+          <li>После ответа у задачи появляется превью результата и ссылка <strong style="color:var(--hq-text)">«Открыть ответ»</strong></li>
+          <li>Из задачника и из истории можно перейти сразу в нужный чат агента</li>
+        </ul>
+
+        <h3>История и контроль</h3>
+        <ul>
+          <li>В <a href="team.html" style="color:var(--hq-accent-hover)">AI Команде</a> есть история связанных задач</li>
+          <li>Там видно: запрос, исполнитель, статус, дату и краткий ответ</li>
+          <li>Если ответ ещё не готов, ссылка всё равно ведёт в правильный диалог агента</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-host"></div>
+
+  <div class="auth-overlay" id="authModal">
+    <div class="auth-card">
+      <div class="sidebar-logo" style="margin-bottom:8px;"><span class="logo-mark">✦</span> AI Delivery</div>
+      <p style="color:var(--hq-text-secondary);font-size:13px;margin:0 0 12px;">Пароль из ADMIN_PASSWORD (.env)</p>
+      <input type="password" id="pwInput" placeholder="Пароль" />
+      <p id="authErr" style="color:var(--hq-error);font-size:12px;min-height:18px;margin:8px 0 0;"></p>
+      <button type="button" class="btn" id="btnAuth" style="width:100%;margin-top:12px;">Войти</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var tabs = document.querySelectorAll('.guide-tab');
+      var panels = {
+        start: document.getElementById('panel-start'),
+        tasks: document.getElementById('panel-tasks'),
+        metrics: document.getElementById('panel-metrics'),
+        am: document.getElementById('panel-am'),
+        crm: document.getElementById('panel-crm'),
+        notes: document.getElementById('panel-notes')
+      };
+
+      function showTab(id) {
+        tabs.forEach(function (t) {
+          var on = t.getAttribute('data-tab') === id;
+          t.classList.toggle('active', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        Object.keys(panels).forEach(function (key) {
+          var p = panels[key];
+          if (!p) return;
+          var on = key === id;
+          p.classList.toggle('active', on);
+          p.hidden = !on;
+        });
+        try {
+          localStorage.setItem('hq_guide_tab', id);
+        } catch (e) {}
+      }
+
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          showTab(tab.getAttribute('data-tab'));
+        });
+      });
+
+      try {
+        var saved = localStorage.getItem('hq_guide_tab');
+        if (saved && panels[saved]) showTab(saved);
+        else showTab('start');
+      } catch (e) {
+        showTab('start');
+      }
+
+      document.querySelectorAll('.guide-code-wrap').forEach(function (wrap) {
+        var btn = wrap.querySelector('.guide-copy-btn');
+        var code = wrap.querySelector('code');
+        if (!btn || !code) return;
+        btn.addEventListener('click', function () {
+          var text = code.textContent || '';
+          function done(ok) {
+            btn.textContent = ok ? 'Скопировано' : 'Ошибка';
+            btn.classList.toggle('copied', ok);
+            setTimeout(function () {
+              btn.textContent = 'Копировать';
+              btn.classList.remove('copied');
+            }, 2000);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { done(false); });
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              done(document.execCommand('copy'));
+            } catch (err) {
+              done(false);
+            }
+            document.body.removeChild(ta);
+          }
+        });
+      });
+
+      var CK = 'hq_guide_checks';
+      try {
+        var stored = JSON.parse(localStorage.getItem(CK) || '[]');
+        document.querySelectorAll('[data-guide-check]').forEach(function (cb, i) {
+          cb.checked = !!stored[i];
+          cb.addEventListener('change', function () {
+            var arr = [];
+            document.querySelectorAll('[data-guide-check]').forEach(function (x) { arr.push(!!x.checked); });
+            localStorage.setItem(CK, JSON.stringify(arr));
+          });
+        });
+      } catch (e) {}
+    })();
+
+    function tickClock() {
+      var el = document.getElementById('hqClock');
+      if (!el) return;
+      var d = new Date();
+      el.textContent = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' +
+        d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const PW_KEY = 'hq_admin_password';
+    function getPw() { return sessionStorage.getItem(PW_KEY) || ''; }
+    function getPassword() { return getPw(); }
+    function showToast(msg, type) {
+      var host = document.getElementById('toast-container');
+      if (!host) return;
+      var el = document.createElement('div');
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = msg;
+      host.appendChild(el);
+      setTimeout(function () { el.remove(); }, 3000);
+    }
+    async function api(path, opts) {
+      opts = opts || {};
+      const authH = (typeof window.hqAuthHeaders === 'function')
+        ? window.hqAuthHeaders()
+        : { 'X-Admin-Password': getPw() };
+      const h = Object.assign({}, authH, opts.headers || {});
+      const r = await fetch(path, Object.assign({}, opts, { headers: h }));
+      if (r.status === 401) {
+        if (!/\/hq\/login(\.html)?$/.test(location.pathname)) {
+          location.href = '/hq/login.html?next=' + encodeURIComponent(location.pathname);
+        }
+      }
+      return r;
+    }
+
+    async function load() {
+      const st = await api('/api/status');
+      const el = document.getElementById('sysStatus');
+      const lbl = el && el.querySelector('.status-label');
+      if (st.ok) {
+        if (lbl) lbl.textContent = 'Онлайн';
+        el.classList.add('online');
+        el.classList.remove('offline');
+      } else {
+        if (lbl) lbl.textContent = 'Оффлайн';
+        el.classList.add('offline');
+        el.classList.remove('online');
+      }
+    }
+
+    document.getElementById('btnAuth').onclick = async function () {
+      const v = document.getElementById('pwInput').value.trim();
+      document.getElementById('authErr').textContent = '';
+      sessionStorage.setItem(PW_KEY, v);
+      const r = await api('/api/status');
+      if (r.ok) {
+        document.getElementById('authModal').classList.remove('is-open');
+        load();
+      } else {
+        document.getElementById('authErr').textContent = 'Неверный пароль';
+        sessionStorage.removeItem(PW_KEY);
+      }
+    };
+
+    (function init() {
+      if (!getPw()) { document.getElementById('authModal').classList.add('is-open'); return; }
+      document.getElementById('authModal').classList.remove('is-open');
+      load();
+    })();
+  </script>
+
+  <nav class="mobile-bottom-nav" id="mobile-nav" aria-label="Основная навигация">
+    <a href="index.html" class="mobile-nav-item" data-page="dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span>Дашборд</span>
+    </a>
+    <a href="crm.html" class="mobile-nav-item" data-page="crm">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span>CRM</span>
+    </a>
+    <a href="team.html" class="mobile-nav-item mobile-nav-center" data-page="team">
+      <div class="mobile-nav-fab">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20v-1a8 8 0 0 1 16 0v1"/>
+          <path d="M12 14v6M9 17h6"/>
+        </svg>
+      </div>
+      <span>Команда</span>
+    </a>
+    <a href="channel.html" class="mobile-nav-item" data-page="channel">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/>
+      </svg>
+      <span>Канал</span>
+    </a>
+    <a href="analytics.html" class="mobile-nav-item" data-page="analytics">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+      <span>Аналитика</span>
+    </a>
+    <a href="account.html" class="mobile-nav-item" data-page="account">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <span>Аккаунт</span>
+    </a>
+    <a href="guide.html" class="mobile-nav-item" data-page="guide">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>Инстр.</span>
+    </a>
+  </nav>
+    <script src="/hq/_components.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>
