@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Pipeline — HQ</title>
+  <link rel="stylesheet" href="_base.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="hq-theme.css">
+  <link rel="stylesheet" href="hq-mobile.css">
+  <style>
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+    .metric-card {
+      padding: 16px;
+      background: var(--hq-card, #1a1a2e);
+      border: 1px solid var(--hq-border, #2a2a3e);
+      border-radius: 12px;
+    }
+    .metric-label { color: var(--hq-text-secondary, #888); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .metric-value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+    .filters-row { display: flex; gap: 12px; margin: 16px 0; align-items: center; flex-wrap: wrap; }
+    .filters-row select { padding: 8px 12px; background: var(--hq-card, #1a1a2e); color: inherit; border: 1px solid var(--hq-border, #2a2a3e); border-radius: 8px; }
+    .runs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .run-card {
+      padding: 16px;
+      background: var(--hq-card, #1a1a2e);
+      border: 1px solid var(--hq-border, #2a2a3e);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+    .run-card:hover { transform: translateY(-2px); border-color: var(--hq-accent, #7c3aed); }
+    .run-card-header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+    .run-title { font-weight: 600; font-size: 15px; line-height: 1.3; }
+    .status-badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+    .status-badge.cyan   { background: rgba(34, 211, 238, 0.15); color: #67e8f9; }
+    .status-badge.green  { background: rgba(34, 197, 94, 0.15);  color: #86efac; }
+    .status-badge.purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; }
+    .status-badge.orange { background: rgba(251, 146, 60, 0.15); color: #fdba74; }
+    .status-badge.yellow { background: rgba(250, 204, 21, 0.15); color: #fde047; }
+    .status-badge.red    { background: rgba(239, 68, 68, 0.15);  color: #fca5a5; }
+    .status-badge.blue   { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+    .status-badge.pink   { background: rgba(244, 114, 182, 0.15); color: #f9a8d4; }
+    .status-badge.gray   { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; }
+    .run-meta { display: flex; gap: 12px; margin-top: 12px; color: var(--hq-text-secondary, #888); font-size: 12px; flex-wrap: wrap; }
+    .run-meta-item { display: flex; gap: 4px; align-items: center; }
+    .progress-bar { margin-top: 12px; height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--hq-accent, #7c3aed); transition: width 0.3s; }
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--hq-text-secondary, #888); }
+    .empty-state h3 { color: inherit; margin: 0 0 8px; }
+    /* Modal */
+    .modal-overlay[hidden] { display: none !important; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--hq-card, #1a1a2e); padding: 24px; border-radius: 14px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
+    .modal h2 { margin: 0 0 16px; }
+    .modal label { display: block; font-size: 12px; color: var(--hq-text-secondary, #888); margin: 12px 0 4px; }
+    .modal input[type="text"], .modal input:not([type]), .modal textarea, .modal select {
+      width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.04);
+      border: 1px solid var(--hq-border, #2a2a3e); border-radius: 8px; color: inherit; font-family: inherit;
+    }
+    .modal textarea { resize: vertical; min-height: 100px; }
+    .radio-group { display: flex; flex-direction: column; gap: 6px; }
+    .radio-group label { display: flex; align-items: center; gap: 8px; margin: 0; cursor: pointer; }
+    .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+    .btn { padding: 10px 18px; border: 1px solid var(--hq-border, #2a2a3e); background: transparent; color: inherit; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .btn-primary { background: var(--hq-accent, #7c3aed); border-color: var(--hq-accent, #7c3aed); color: white; }
+    .btn-primary:hover { background: #8b5cf6; }
+    /* Mobile */
+    @media (max-width: 768px) {
+      .runs-grid { grid-template-columns: 1fr; }
+      .modal { max-width: 95vw; padding: 18px; }
+      .modal-actions { flex-direction: column-reverse; }
+      .modal-actions .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hq-shell">
+    <aside class="hq-sidebar"><nav class="hq-sidebar-nav"></nav></aside>
+    <main class="hq-main">
+      <header class="hq-topbar">
+        <h1 style="margin: 0; font-size: 22px;">🤖 AI Pipeline</h1>
+        <div style="margin-left: auto; display: flex; gap: 12px; align-items: center;">
+          <span id="rate-limit-indicator" style="font-size: 12px; color: var(--hq-text-secondary, #888);"></span>
+          <button id="new-run-btn" class="btn btn-primary">+ Новый pipeline-run</button>
+        </div>
+      </header>
+
+      <section class="metrics-row">
+        <div class="metric-card"><div class="metric-label">Активные</div><div class="metric-value" id="m-active">—</div></div>
+        <div class="metric-card"><div class="metric-label">Ждут approval</div><div class="metric-value" id="m-await">—</div></div>
+        <div class="metric-card"><div class="metric-label">На review</div><div class="metric-value" id="m-review">—</div></div>
+        <div class="metric-card"><div class="metric-label">Готовы</div><div class="metric-value" id="m-done">—</div></div>
+        <div class="metric-card"><div class="metric-label">Сбои</div><div class="metric-value" id="m-failed">—</div></div>
+      </section>
+
+      <section class="filters-row">
+        <label style="font-size: 12px; color: var(--hq-text-secondary, #888);">Фильтр статуса:</label>
+        <select id="filter-status">
+          <option value="">Все</option>
+          <option value="pending">Ожидает</option>
+          <option value="running">Выполняется</option>
+          <option value="awaiting_approval">Ждёт approval</option>
+          <option value="paused_rate_limit">Пауза (лимит)</option>
+          <option value="done">Готово</option>
+          <option value="failed">Сбой</option>
+        </select>
+        <span id="runs-count" style="margin-left: auto; font-size: 12px; color: var(--hq-text-secondary, #888);"></span>
+      </section>
+
+      <section class="runs-grid" id="runs-grid">
+        <div class="empty-state"><h3>Загрузка...</h3></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Create run modal -->
+  <div class="modal-overlay" id="create-modal" hidden>
+    <div class="modal">
+      <h2>Новый pipeline-run</h2>
+      <form id="create-form">
+        <label for="f-title">Название проекта</label>
+        <input id="f-title" name="title" required maxlength="200" placeholder="Лендинг для X">
+
+        <label for="f-idea">Описание идеи</label>
+        <textarea id="f-idea" name="raw_idea" required rows="6"
+          placeholder="Что нужно сделать? Целевая аудитория, ключевые блоки, CTA."></textarea>
+
+        <label for="f-type">Тип проекта</label>
+        <select id="f-type" name="project_type">
+          <option value="landing">landing</option>
+          <option value="telegram_bot">telegram_bot</option>
+          <option value="n8n">n8n</option>
+          <option value="ai_assistant">ai_assistant</option>
+          <option value="custom">custom</option>
+        </select>
+
+        <label>Уровень автономии</label>
+        <div class="radio-group">
+          <label><input type="radio" name="autonomy_level" value="1"> 1 — подтверждаю каждый этап</label>
+          <label><input type="radio" name="autonomy_level" value="2" checked> 2 — подтверждаю PRD и план спринтов</label>
+          <label><input type="radio" name="autonomy_level" value="3"> 3 — без остановок</label>
+        </div>
+
+        <label for="f-deploy">Стратегия деплоя</label>
+        <select id="f-deploy" name="deploy_strategy">
+          <option value="none">none — без деплоя</option>
+          <option value="vercel">vercel</option>
+          <option value="aeza">aeza-subdomain</option>
+        </select>
+
+        <div class="modal-actions">
+          <button type="button" id="cancel-create" class="btn">Отмена</button>
+          <button type="submit" class="btn btn-primary">Запустить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="_components.js"></script>
+  <script src="hq-global.js"></script>
+  <script src="hq-mobile.js"></script>
+  <script src="hq-pipeline.js"></script>
+  <script>
+    let refreshTimer = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (typeof ensureAuthenticated === 'function') ensureAuthenticated();
+      if (typeof initSidebar === 'function') initSidebar();
+      if (typeof applyRoleVisibility === 'function') applyRoleVisibility();
+      if (typeof window.HQV3 !== 'undefined' && HQV3.initTopbar) HQV3.initTopbar();
+
+      document.getElementById('filter-status').addEventListener('change', refreshRuns);
+      document.getElementById('new-run-btn').addEventListener('click', openCreateModal);
+      document.getElementById('cancel-create').addEventListener('click', closeCreateModal);
+      document.getElementById('create-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'create-modal') closeCreateModal();
+      });
+      document.getElementById('create-form').addEventListener('submit', onSubmit);
+
+      await refreshRuns();
+      // Auto-refresh active list every 5s.
+      refreshTimer = setInterval(refreshRuns, 5000);
+    });
+
+    async function refreshRuns() {
+      const status = document.getElementById('filter-status').value;
+      const filters = { limit: 100 };
+      if (status) filters.status = status;
+      try {
+        const result = await HQPipeline.listRuns(filters);
+        renderRuns(result.runs || []);
+        // Always refresh metrics from full list (no status filter)
+        if (status) {
+          const fullResult = await HQPipeline.listRuns({ limit: 200 });
+          updateMetrics(fullResult.runs || []);
+        } else {
+          updateMetrics(result.runs || []);
+        }
+      } catch (err) {
+        if (err.message === 'UNAUTHORIZED') {
+          location.href = 'login.html';
+          return;
+        }
+        console.error('refreshRuns failed:', err);
+        document.getElementById('runs-grid').innerHTML =
+          '<div class="empty-state"><h3>Ошибка загрузки</h3><p>' + err.message + '</p></div>';
+      }
+    }
+
+    function renderRuns(runs) {
+      const grid = document.getElementById('runs-grid');
+      document.getElementById('runs-count').textContent = `Всего: ${runs.length}`;
+      if (runs.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><h3>Пока нет pipeline-run</h3><p>Нажмите «+ Новый pipeline-run» чтобы создать первый.</p></div>';
+        return;
+      }
+      const phaseIdx = (p) => ['prompt','prd','architecture','sprints','execution','validation','handoff'].indexOf(p);
+      grid.innerHTML = runs.map(r => {
+        const colorClass = HQPipeline.statusColor(r.status);
+        const statusLabel = HQPipeline.statusLabel(r.status);
+        const phaseLabel = HQPipeline.phaseLabel(r.current_phase);
+        const idx = phaseIdx(r.current_phase);
+        const progress = r.status === 'done' ? 100 : (idx >= 0 ? Math.round((idx + 1) / 7 * 100) : 0);
+        return `
+          <div class="run-card" onclick="location.href='pipeline-run-detail.html?id=${r.id}'">
+            <div class="run-card-header">
+              <div class="run-title">${escapeHtml(r.title || '(без названия)')}</div>
+              <span class="status-badge ${colorClass}">${statusLabel}</span>
+            </div>
+            <div class="run-meta">
+              <span class="run-meta-item">🎯 ${escapeHtml(r.project_type || '')}</span>
+              <span class="run-meta-item">📊 ${phaseLabel}</span>
+              <span class="run-meta-item">#${r.id}</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width: ${progress}%"></div></div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateMetrics(runs) {
+      const counters = { active: 0, await_: 0, review: 0, done: 0, failed: 0 };
+      for (const r of runs) {
+        if (['running', 'pending', 'paused_user', 'paused_rate_limit', 'validating', 'deploying'].includes(r.status)) counters.active++;
+        else if (r.status === 'awaiting_approval') counters.await_++;
+        else if (r.status === 'review') counters.review++;
+        else if (r.status === 'done') counters.done++;
+        else if (r.status === 'failed' || r.status === 'aborted') counters.failed++;
+      }
+      document.getElementById('m-active').textContent = counters.active;
+      document.getElementById('m-await').textContent = counters.await_;
+      document.getElementById('m-review').textContent = counters.review;
+      document.getElementById('m-done').textContent = counters.done;
+      document.getElementById('m-failed').textContent = counters.failed;
+    }
+
+    function openCreateModal() {
+      document.getElementById('create-modal').hidden = false;
+      document.getElementById('f-title').focus();
+    }
+    function closeCreateModal() {
+      document.getElementById('create-modal').hidden = true;
+      document.getElementById('create-form').reset();
+    }
+
+    async function onSubmit(e) {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      data.autonomy_level = parseInt(data.autonomy_level, 10);
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Запускаю...';
+      try {
+        const created = await HQPipeline.createRun(data);
+        closeCreateModal();
+        location.href = `pipeline-run-detail.html?id=${created.id}`;
+      } catch (err) {
+        alert('Ошибка создания run: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Запустить';
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    });
+  </script>
+</body>
+</html>
