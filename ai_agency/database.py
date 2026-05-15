@@ -550,6 +550,7 @@ async def init_db():
     await _seed_delivery_templates()
     await _add_pipeline_tables_v1()
     await _migrate_pipeline_v1_1()
+    await _migrate_pipeline_v1_3()
 
 
 async def _migrate_delivery_templates_expand() -> None:
@@ -3893,3 +3894,37 @@ async def _migrate_pipeline_v1_1() -> None:
         await _add_column_if_missing(db, "pipeline_runs", "tokens_used", "INTEGER DEFAULT 0")
         await db.commit()
         logger.info("Pipeline v1.1 migration applied (pipeline_runs.tokens_used)")
+
+
+async def _migrate_pipeline_v1_3() -> None:
+    """v1.3: pipeline_audit_log for compliance + debug.
+
+    Records who did what to which run and when. All admin actions
+    (pause/resume/abort/approve, both via HTTP API and Telegram) are
+    logged here.
+    """
+    async with aiosqlite.connect(str(DB_PATH)) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS pipeline_audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                run_id INTEGER REFERENCES pipeline_runs(id) ON DELETE SET NULL,
+                action TEXT NOT NULL,
+                actor TEXT NOT NULL,
+                actor_id INTEGER,
+                source TEXT NOT NULL DEFAULT 'http',
+                from_status TEXT,
+                to_status TEXT,
+                details_json TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_audit_run "
+            "ON pipeline_audit_log(run_id, created_at DESC)"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_pipeline_audit_action "
+            "ON pipeline_audit_log(action)"
+        )
+        await db.commit()
+        logger.info("Pipeline v1.3 migration applied (pipeline_audit_log table)")

@@ -104,16 +104,20 @@
       </section>
 
       <section class="filters-row">
-        <label style="font-size: 12px; color: var(--hq-text-secondary, #888);">Фильтр статуса:</label>
+        <label style="font-size: 12px; color: var(--hq-text-secondary, #888);">Фильтр:</label>
         <select id="filter-status">
-          <option value="">Все</option>
+          <option value="">Все статусы</option>
           <option value="pending">Ожидает</option>
           <option value="running">Выполняется</option>
           <option value="awaiting_approval">Ждёт approval</option>
           <option value="paused_rate_limit">Пауза (лимит)</option>
+          <option value="paused_user">Пауза (вручную)</option>
           <option value="done">Готово</option>
           <option value="failed">Сбой</option>
+          <option value="aborted">Отменено</option>
         </select>
+        <input type="search" id="search-input" placeholder="🔍 Поиск по title или idea..."
+               style="flex: 1; max-width: 300px; padding: 8px 12px; background: var(--hq-card, #1a1a2e); color: inherit; border: 1px solid var(--hq-border, #2a2a3e); border-radius: 8px;">
         <span id="runs-count" style="margin-left: auto; font-size: 12px; color: var(--hq-text-secondary, #888);"></span>
       </section>
 
@@ -180,6 +184,13 @@
       if (typeof window.HQV3 !== 'undefined' && HQV3.initTopbar) HQV3.initTopbar();
 
       document.getElementById('filter-status').addEventListener('change', refreshRuns);
+
+      // Client-side search (debounced)
+      let searchTimer;
+      document.getElementById('search-input').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(applySearchFilter, 200);
+      });
       document.getElementById('new-run-btn').addEventListener('click', openCreateModal);
       document.getElementById('cancel-create').addEventListener('click', closeCreateModal);
       document.getElementById('create-modal').addEventListener('click', (e) => {
@@ -222,19 +233,22 @@
       }
     }
 
+    let _allRuns = [];  // cache for client-side search
+
     async function refreshRuns() {
       const status = document.getElementById('filter-status').value;
       const filters = { limit: 100 };
       if (status) filters.status = status;
       try {
         const result = await HQPipeline.listRuns(filters);
-        renderRuns(result.runs || []);
+        _allRuns = result.runs || [];
+        applySearchFilter();
         // Always refresh metrics from full list (no status filter)
         if (status) {
           const fullResult = await HQPipeline.listRuns({ limit: 200 });
           updateMetrics(fullResult.runs || []);
         } else {
-          updateMetrics(result.runs || []);
+          updateMetrics(_allRuns);
         }
       } catch (err) {
         if (err.message === 'UNAUTHORIZED') {
@@ -245,6 +259,21 @@
         document.getElementById('runs-grid').innerHTML =
           '<div class="empty-state"><h3>Ошибка загрузки</h3><p>' + err.message + '</p></div>';
       }
+    }
+
+    function applySearchFilter() {
+      const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
+      if (!q) {
+        renderRuns(_allRuns);
+        return;
+      }
+      const filtered = _allRuns.filter(r =>
+        (r.title || '').toLowerCase().includes(q) ||
+        (r.raw_idea || '').toLowerCase().includes(q) ||
+        (r.project_type || '').toLowerCase().includes(q) ||
+        String(r.id).includes(q)
+      );
+      renderRuns(filtered);
     }
 
     function renderRuns(runs) {

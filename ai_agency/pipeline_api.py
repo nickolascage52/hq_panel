@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from database import DB_PATH
 from pipeline import PipelineRunner
+from pipeline.audit import log_action as _audit_log, list_audit_log as _audit_list
 from pipeline.progress import PipelineProgress
 from session_store import get_session as _ss_get_session
 
@@ -47,6 +48,22 @@ class PipelineRunCreateBody(BaseModel):
 
 def _row_to_dict(row: aiosqlite.Row) -> dict[str, Any]:
     return {k: row[k] for k in row.keys()}
+
+
+def _tmux_available_safe() -> bool:
+    try:
+        from pipeline.tmux_manager import tmux_available
+        return tmux_available()
+    except Exception:
+        return False
+
+
+def _api_key_configured() -> bool:
+    try:
+        from pipeline.claude_runner import _api_key_available
+        return _api_key_available()
+    except Exception:
+        return False
 
 
 async def _spawn_runner(run_id: int) -> None:
@@ -111,6 +128,13 @@ def mount_pipeline_routes(
 
         # Fire-and-forget background execution (lives in event loop, not request scope).
         asyncio.create_task(_spawn_runner(run_id))
+
+        await _audit_log(run_id=run_id, action="create",
+                         actor=session.get("name") or "owner",
+                         actor_id=session.get("user_id"),
+                         source="http", to_status="pending",
+                         details={"title": payload.title, "type": payload.project_type,
+                                  "autonomy": payload.autonomy_level})
 
         logger.info("Pipeline run created: id=%s title=%r by user_id=%s",
                     run_id, payload.title, session.get("user_id"))
@@ -198,6 +222,98 @@ def mount_pipeline_routes(
             events.append(d)
 
         return {"events": events, "count": len(events), "limit": limit, "since": since}
+
+    # ── GET /api/pipeline/audit-log (v1.3) ───────────────────────────────
+
+    @app.get("/api/pipeline/audit-log")
+    async def pipeline_audit_log_list(
+        run_id: int | None = Query(None),
+        action: str | None = Query(None),
+        limit: int = Query(100, ge=1, le=500),
+        offset: int = Query(0, ge=0),
+        _session: dict = Depends(require_role("owner")),
+    ):
+        """Owner-only audit trail of pipeline admin actions.
+
+        Filters: ?run_id=N&action=pause&limit=&offset=
+        """
+        entries = await _audit_list(run_id=run_id, action=action, limit=limit, offset=offset)
+        return {"entries": entries, "count": len(entries), "limit": limit, "offset": offset}
+
+    # ── GET /api/pipeline/health (v1.3) ──────────────────────────────────
+
+    @app.get("/api/pipeline/health")
+    async def pipeline_health(
+        _session: dict = Depends(require_role("owner", "pm")),
+    ):
+        """Aggregate health metrics for monitoring. No auth-bypass — same
+        as other endpoints (owner|pm).
+
+        Returns:
+            counts_by_status: {pending, running, paused_*, awaiting_approval, done, failed, aborted}
+            recent: {created_24h, completed_24h, failed_24h}
+            workspace_size_mb: total size of pipeline_workspaces/ on disk
+            db_size_mb: agency.db file size
+            uptime_check: 'ok' if all critical components reachable
+        """
+        from pathlib import Path
+
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            db.row_factory = aiosqlite.Row
+
+            # Status distribution
+            cur = await db.execute(
+                "SELECT status, COUNT(*) as n FROM pipeline_runs GROUP BY status"
+            )
+            counts = {r["status"]: r["n"] for r in await cur.fetchall()}
+
+            # 24h activity
+            cur = await db.execute(
+                "SELECT "
+                "  SUM(CASE WHEN datetime(created_at) > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as created_24h, "
+                "  SUM(CASE WHEN status='done' AND datetime(completed_at) > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as done_24h, "
+                "  SUM(CASE WHEN status='failed' AND datetime(completed_at) > datetime('now', '-24 hours') THEN 1 ELSE 0 END) as failed_24h "
+                "FROM pipeline_runs"
+            )
+            row = await cur.fetchone()
+            recent = {
+                "created_24h": row["created_24h"] or 0,
+                "completed_24h": row["done_24h"] or 0,
+                "failed_24h": row["failed_24h"] or 0,
+            }
+
+            # Total tokens used (cumulative across all runs)
+            cur = await db.execute("SELECT COALESCE(SUM(tokens_used), 0) FROM pipeline_runs")
+            (total_tokens,) = await cur.fetchone()
+
+        # Disk metrics (best-effort, never raise)
+        ws_size_mb = 0.0
+        try:
+            ws_root = Path(DB_PATH).parent / "pipeline_workspaces"
+            if ws_root.exists():
+                ws_size_mb = round(
+                    sum(f.stat().st_size for f in ws_root.rglob("*") if f.is_file()) / 1_048_576,
+                    2,
+                )
+        except Exception:
+            pass
+
+        db_size_mb = 0.0
+        try:
+            db_size_mb = round(Path(DB_PATH).stat().st_size / 1_048_576, 2)
+        except Exception:
+            pass
+
+        return {
+            "status": "ok",
+            "counts_by_status": counts,
+            "recent_24h": recent,
+            "total_tokens_used": int(total_tokens or 0),
+            "workspace_size_mb": ws_size_mb,
+            "db_size_mb": db_size_mb,
+            "tmux_available": _tmux_available_safe(),
+            "claude_api_key": "configured" if _api_key_configured() else "disabled",
+        }
 
     # ── GET /api/pipeline/rate-limits (v1.2) ─────────────────────────────
 
@@ -377,13 +493,17 @@ def mount_pipeline_routes(
                     f"cannot approve: status is '{current}', expected 'awaiting_approval'",
                 )
 
-        # Log + emit event
+        # Log + emit event + audit
         progress = PipelineProgress(run_id)
         await progress.emit_event(
             "approval_granted",
             payload={"by_user_id": session.get("user_id")},
             severity="info",
         )
+        await _audit_log(run_id=run_id, action="approve",
+                         actor=session.get("name") or "owner",
+                         actor_id=session.get("user_id"),
+                         source="http", from_status="awaiting_approval", to_status="running")
 
         # Spawn resume in background — returns immediately.
         asyncio.create_task(_spawn_resume(run_id))
@@ -424,6 +544,10 @@ def mount_pipeline_routes(
             "paused", payload={"reason": "manual", "by_user_id": session.get("user_id")},
             severity="warning",
         )
+        await _audit_log(run_id=run_id, action="pause",
+                         actor=session.get("name") or "owner",
+                         actor_id=session.get("user_id"),
+                         source="http", from_status=current, to_status="paused_user")
         logger.info("Pipeline run %s paused by user_id=%s", run_id, session.get("user_id"))
         return {"id": run_id, "status": "paused_user"}
 
@@ -448,6 +572,10 @@ def mount_pipeline_routes(
         await PipelineProgress(run_id).emit_event(
             "resumed", payload={"by_user_id": session.get("user_id"), "from_status": current},
         )
+        await _audit_log(run_id=run_id, action="resume",
+                         actor=session.get("name") or "owner",
+                         actor_id=session.get("user_id"),
+                         source="http", from_status=current, to_status="running")
         asyncio.create_task(_spawn_resume(run_id))
         logger.info("Pipeline run %s resumed by user_id=%s", run_id, session.get("user_id"))
         return {"id": run_id, "status": "running", "message": f"resumed from {current}"}
@@ -481,6 +609,10 @@ def mount_pipeline_routes(
             "run_aborted", payload={"by_user_id": session.get("user_id"), "from_status": current},
             severity="warning",
         )
+        await _audit_log(run_id=run_id, action="abort",
+                         actor=session.get("name") or "owner",
+                         actor_id=session.get("user_id"),
+                         source="http", from_status=current, to_status="aborted")
         logger.info("Pipeline run %s aborted by user_id=%s (was %s)",
                     run_id, session.get("user_id"), current)
         return {"id": run_id, "status": "aborted"}

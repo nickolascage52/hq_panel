@@ -186,20 +186,28 @@ async def _action_command(update, context, action: str):
     # Apply
     from .progress import PipelineProgress
     from .runner import PipelineRunner
+    from .audit import log_action
 
     progress = PipelineProgress(run_id)
+    actor_id = update.effective_user.id if update.effective_user else None
 
     if action == "pause":
         await _change_run_status(run_id, "paused_user",
                                  paused_at=datetime.now(),
                                  pause_reason="manual pause by owner (via Telegram)")
         await progress.emit_event("paused", payload={"reason": "manual_telegram"}, severity="warning")
+        await log_action(run_id=run_id, action="pause", actor="telegram_owner",
+                         actor_id=actor_id, source="telegram",
+                         from_status=current, to_status="paused_user")
         await update.message.reply_text(f"⏸ Pipeline #{run_id} → paused")
     elif action in ("resume", "approve"):
         await progress.emit_event(
             "approval_granted" if action == "approve" else "resumed",
             payload={"by": "telegram_owner", "from_status": current},
         )
+        await log_action(run_id=run_id, action=action, actor="telegram_owner",
+                         actor_id=actor_id, source="telegram",
+                         from_status=current, to_status="running")
         # Spawn resume in background
         asyncio.create_task(PipelineRunner(run_id).resume())
         verb = "одобрен" if action == "approve" else "возобновлён"
@@ -210,6 +218,9 @@ async def _action_command(update, context, action: str):
                                  error_message=f"aborted by owner (via Telegram, was {current})")
         await progress.emit_event("run_aborted", payload={"by": "telegram_owner", "from_status": current},
                                   severity="warning")
+        await log_action(run_id=run_id, action="abort", actor="telegram_owner",
+                         actor_id=actor_id, source="telegram",
+                         from_status=current, to_status="aborted")
         await update.message.reply_text(f"❌ Pipeline #{run_id} aborted")
 
 

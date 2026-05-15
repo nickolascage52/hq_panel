@@ -218,3 +218,71 @@ def test_tokens_used_in_run_response(service, auth_headers):
     # In stub mode, no Claude calls -> tokens_used stays 0 (default)
     assert "tokens_used" in r.json()
     assert (r.json()["tokens_used"] or 0) == 0
+
+
+# ── v1.3: Health, Rate Limits, Audit Log ────────────────────────────────
+
+
+def test_health_endpoint(service, auth_headers):
+    r = httpx.get(f"{HTTP_BASE}/api/pipeline/health", headers=auth_headers, timeout=5)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert "counts_by_status" in data
+    assert "recent_24h" in data
+    for k in ("created_24h", "completed_24h", "failed_24h"):
+        assert k in data["recent_24h"]
+    assert isinstance(data["total_tokens_used"], int)
+    assert isinstance(data["workspace_size_mb"], (int, float))
+    assert isinstance(data["db_size_mb"], (int, float))
+    assert "tmux_available" in data
+    assert "claude_api_key" in data
+
+
+def test_rate_limits_endpoint(service, auth_headers):
+    r = httpx.get(f"{HTTP_BASE}/api/pipeline/rate-limits", headers=auth_headers, timeout=5)
+    assert r.status_code == 200
+    data = r.json()
+    assert "models" in data
+    # Seeded models (opus, sonnet, haiku) — 3 rows
+    for m in ("opus", "sonnet", "haiku"):
+        assert m in data["models"]
+        assert data["models"][m]["status"] in ("ok", "warning", "critical")
+    assert "thresholds" in data
+    assert data["thresholds"]["downgrade"] == 70
+    assert data["thresholds"]["pause"] == 90
+    assert isinstance(data["should_pause"], bool)
+
+
+def test_audit_log_records_actions(service, auth_headers):
+    run_id = _create_run(auth_headers, "audit")
+    time.sleep(1)
+
+    # Pause -> creates 'pause' audit entry
+    r = httpx.post(f"{HTTP_BASE}/api/pipeline/runs/{run_id}/pause",
+                   headers=auth_headers, timeout=5)
+    assert r.status_code == 200
+    time.sleep(0.3)
+
+    # Read audit log filtered by this run
+    r = httpx.get(f"{HTTP_BASE}/api/pipeline/audit-log?run_id={run_id}",
+                  headers=auth_headers, timeout=5)
+    assert r.status_code == 200
+    entries = r.json()["entries"]
+    actions = {e["action"] for e in entries}
+    # Should at least see 'create' (from POST) and 'pause' (from /pause)
+    assert "create" in actions
+    assert "pause" in actions
+
+    # Filter by action
+    r = httpx.get(f"{HTTP_BASE}/api/pipeline/audit-log?action=pause",
+                  headers=auth_headers, timeout=5)
+    assert r.status_code == 200
+    for e in r.json()["entries"]:
+        assert e["action"] == "pause"
+
+
+def test_audit_log_owner_only(service):
+    # Without auth: 401
+    r = httpx.get(f"{HTTP_BASE}/api/pipeline/audit-log", timeout=5)
+    assert r.status_code == 401
