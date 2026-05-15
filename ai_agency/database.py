@@ -372,6 +372,25 @@ async def init_db():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_hq_users_login ON hq_users(login)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_hq_users_role ON hq_users(role)")
 
+        # ── HQ sessions (T-1-011: persistent sessions across restarts) ──
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS hq_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token TEXT NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (user_id) REFERENCES hq_users(id) ON DELETE CASCADE
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_hq_sessions_token ON hq_sessions(token)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_hq_sessions_expires ON hq_sessions(expires_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_hq_sessions_user ON hq_sessions(user_id)")
+
         # ── Исполнители (могут быть привязаны к hq_users.id) ──
         await db.execute("""
             CREATE TABLE IF NOT EXISTS executors (
