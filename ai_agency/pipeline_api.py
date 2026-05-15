@@ -19,11 +19,13 @@ import logging
 from typing import Any, Callable
 
 import aiosqlite
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from database import DB_PATH
 from pipeline import PipelineRunner
+from pipeline.progress import PipelineProgress
+from session_store import get_session as _ss_get_session
 
 logger = logging.getLogger("pipeline_api")
 
@@ -189,4 +191,46 @@ def mount_pipeline_routes(
 
         return {"events": events, "count": len(events), "limit": limit, "since": since}
 
-    logger.info("Pipeline routes mounted: /api/pipeline/runs (CRUD + events)")
+    # ── WS /ws/pipeline/{run_id} (T-2-012) ───────────────────────────────
+
+    @app.websocket("/ws/pipeline/{run_id}")
+    async def pipeline_ws(
+        websocket: WebSocket,
+        run_id: int,
+        token: str = Query(...),
+    ):
+        """WebSocket stream of events for a pipeline-run.
+
+        Auth via ?token=<X-Auth-Token> query parameter (browsers can't set
+        custom WS headers cross-origin). Token validated against hq_sessions
+        (T-1-012). Owner or pm role required.
+
+        Subscribes to PipelineProgress for run_id; events broadcast by
+        emit_event() arrive as JSON messages: {id, run_id, event_type,
+        severity, payload, created_at, ...}.
+
+        Client may send arbitrary text (ignored) — used as a keepalive ping.
+        On disconnect or error, subscription is cleaned up.
+        """
+        sess = await _ss_get_session(token)
+        if sess is None or sess.get("role") not in ("owner", "pm"):
+            # 1008 = policy violation. WS closes before accept().
+            await websocket.close(code=1008)
+            return
+
+        await websocket.accept()
+        PipelineProgress.subscribe(run_id, websocket)
+        logger.info("WS connected: run_id=%s user_id=%s", run_id, sess.get("user_id"))
+        try:
+            # Loop receiving (and ignoring) text frames so we notice disconnects.
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            pass
+        except Exception as e:  # noqa: BLE001 — log and unsubscribe
+            logger.warning("WS error on run %s: %s", run_id, e)
+        finally:
+            PipelineProgress.unsubscribe(run_id, websocket)
+            logger.info("WS disconnected: run_id=%s user_id=%s", run_id, sess.get("user_id"))
+
+    logger.info("Pipeline routes mounted: /api/pipeline/runs (CRUD + events) + /ws/pipeline/{run_id}")
